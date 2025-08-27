@@ -1,19 +1,16 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace AuthService.Domain.Services;
+namespace Common.Security;
 
 public static class Hashing
 {
-    // Pepper з appsettings: Security:HashPepper
+    // Pepper from appsettings: Security:HashPepper
     public static (string hashHex, string saltHex) HashSecret(string value, string? saltHex, string pepper)
     {
         var salt = saltHex is null ? RandomNumberGenerator.GetBytes(16) : Convert.FromHexString(saltHex);
         var data = Encoding.UTF8.GetBytes(value.Trim());
         var pepperBytes = Encoding.UTF8.GetBytes(pepper);
-
-        // IBAN нормалізуємо до upper без пробілів
-        // DOB формат YYYY-MM-DD
 
         using var sha = SHA256.Create();
         var toHash = data

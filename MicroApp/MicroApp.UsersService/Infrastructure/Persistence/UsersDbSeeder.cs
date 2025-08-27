@@ -15,10 +15,10 @@ public static class UsersDbSeeder
                     UserPermissions.ViewPayments | UserPermissions.CreatePayments | UserPermissions.ConfirmPayments |
                     UserPermissions.ViewUsers | UserPermissions.ManageCompanyUsers |
                     UserPermissions.EditCompanyDetails | UserPermissions.ViewCards | UserPermissions.ManageCompanyCards },
-                new Role { Id = Guid.NewGuid(), Name = "Manager", Permissions =
+                new Role { Id = Guid.NewGuid(), Name = "CFO", Permissions =
                     UserPermissions.ViewPayments | UserPermissions.CreatePayments |
                     UserPermissions.ViewUsers | UserPermissions.ViewCards | UserPermissions.ManageCompanyCards },
-                new Role { Id = Guid.NewGuid(), Name = "Viewer", Permissions =
+                new Role { Id = Guid.NewGuid(), Name = "CTO", Permissions =
                     UserPermissions.ViewPayments | UserPermissions.ViewUsers | UserPermissions.ViewCards }
             );
             await db.SaveChangesAsync();

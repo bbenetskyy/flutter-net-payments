@@ -28,6 +28,8 @@ doc/api/
 .flutter-plugins
 .flutter-plugins-dependencies
 
-MicroApp/.idea/
-MicroApp/bin/
-MicroApp/obj/
+**/.idea/
+**/bin/
+**/obj/
+
+.DS_Store

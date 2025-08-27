@@ -8,6 +8,9 @@ public sealed class User
     public string Email { get; set; } = default!;
     public string DisplayName { get; set; } = default!;
 
+    // Password (BCrypt hash)
+    public string PasswordHash { get; set; } = default!;
+
     // Хешовані значення з сіллю/перцем
     public string? IbanHash { get; set; }          // hex/base64 хеш IBAN
     public string? DobHash { get; set; }           // YYYY-MM-DD -> хеш
