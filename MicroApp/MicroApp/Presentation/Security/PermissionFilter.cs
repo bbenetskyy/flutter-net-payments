@@ -32,7 +32,7 @@ public sealed class PermissionFilter : IEndpointFilter
         }
 
         // Resolve DB and compute effective permissions
-        var db = http.RequestServices.GetRequiredService<UsersDb>();
+        var db = http.RequestServices.GetRequiredService<MicroAppDb>();
         var u = await db.Users.Include(x => x.Role).FirstOrDefaultAsync(x => x.Id == userId);
         if (u is null)
         {

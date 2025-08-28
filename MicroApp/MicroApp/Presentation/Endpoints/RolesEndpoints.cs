@@ -12,7 +12,7 @@ public static class RolesEndpoints
     public static void MapRolesEndpoints(this IEndpointRouteBuilder app)
     {
         // GET /roles
-        app.MapGet("/roles", async (UsersDb db) =>
+        app.MapGet("/roles", async (MicroAppDb db) =>
             Results.Ok(await db.Roles
                 .Include(r => r.Users)
                 .OrderBy(r => r.Name)
@@ -21,7 +21,7 @@ public static class RolesEndpoints
             .RequirePermission(UserPermissions.ViewUsers);
 
         // POST /roles
-        app.MapPost("/roles", async (CreateRoleRequest req, UsersDb db) =>
+        app.MapPost("/roles", async (CreateRoleRequest req, MicroAppDb db) =>
         {
             var name = req.Name.Trim();
             if (string.IsNullOrWhiteSpace(name)) return Results.BadRequest("Name is required");
@@ -43,7 +43,7 @@ public static class RolesEndpoints
         }).RequirePermission(UserPermissions.ManageCompanyUsers);
 
         // PUT /roles/{id}
-        app.MapPut("/roles/{id:guid}", async (Guid id, UpdateRoleRequest req, UsersDb db) =>
+        app.MapPut("/roles/{id:guid}", async (Guid id, UpdateRoleRequest req, MicroAppDb db) =>
         {
             var role = await db.Roles.Include(r => r.Users).FirstOrDefaultAsync(r => r.Id == id);
             if (role is null) return Results.NotFound();
@@ -65,7 +65,7 @@ public static class RolesEndpoints
         }).RequirePermission(UserPermissions.ManageCompanyUsers);
 
         // DELETE /roles/{id}
-        app.MapDelete("/roles/{id:guid}", async (Guid id, UsersDb db) =>
+        app.MapDelete("/roles/{id:guid}", async (Guid id, MicroAppDb db) =>
         {
             var role = await db.Roles.Include(r => r.Users).FirstOrDefaultAsync(r => r.Id == id);
             if (role is null) return Results.NotFound();

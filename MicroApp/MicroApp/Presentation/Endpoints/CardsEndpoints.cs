@@ -12,7 +12,7 @@ public static class CardsEndpoints
     public static void MapCardsEndpoints(this IEndpointRouteBuilder app)
     {
         // Create a card
-        app.MapPost("/cards", async (CreateCardRequest req, CardsDb db, IValidator<CreateCardRequest> validator) =>
+        app.MapPost("/cards", async (CreateCardRequest req, MicroAppDb db, IValidator<CreateCardRequest> validator) =>
         {
             var vr = validator.Validate(req);
             if (!vr.IsValid) return Results.BadRequest(vr.Error);
@@ -33,7 +33,7 @@ public static class CardsEndpoints
         }).RequireAuthorization();
 
         // Assign to user
-        app.MapPost("/cards/{id:guid}/assign", async (Guid id, AssignCardRequest req, CardsDb db,IValidator<AssignCardRequest> reqValidator,IValidator<AssignCardOperation> opValidator) =>
+        app.MapPost("/cards/{id:guid}/assign", async (Guid id, AssignCardRequest req, MicroAppDb db,IValidator<AssignCardRequest> reqValidator,IValidator<AssignCardOperation> opValidator) =>
         {
             var vr = reqValidator.Validate(req);
             if (!vr.IsValid) return Results.BadRequest(vr.Error);
@@ -52,7 +52,7 @@ public static class CardsEndpoints
         }).RequireAuthorization();
 
         // Update/manage card
-        app.MapPut("/cards/{id:guid}", async (Guid id, UpdateCardRequest req, CardsDb db,IValidator<UpdateCardRequest> reqValidator,IValidator<UpdateCardOperation> opValidator) =>
+        app.MapPut("/cards/{id:guid}", async (Guid id, UpdateCardRequest req, MicroAppDb db,IValidator<UpdateCardRequest> reqValidator,IValidator<UpdateCardOperation> opValidator) =>
         {
             var card = await db.Cards.FindAsync(id);
             if (card is null) return Results.NotFound();
@@ -77,7 +77,7 @@ public static class CardsEndpoints
         }).RequireAuthorization();
 
         // Delete card
-        app.MapDelete("/cards/{id:guid}", async (Guid id, CardsDb db) =>
+        app.MapDelete("/cards/{id:guid}", async (Guid id, MicroAppDb db) =>
         {
             var card = await db.Cards.FindAsync(id);
             if (card is null) return Results.NotFound();
@@ -87,7 +87,7 @@ public static class CardsEndpoints
         }).RequireAuthorization();
 
         // Optional: Get by id for convenience when testing
-        app.MapGet("/cards/{id:guid}", async (Guid id, CardsDb db) =>
+        app.MapGet("/cards/{id:guid}", async (Guid id, MicroAppDb db) =>
         {
             var card = await db.Cards.FirstOrDefaultAsync(c => c.Id == id);
             return card is null ? Results.NotFound() : Results.Ok(ToDto(card));

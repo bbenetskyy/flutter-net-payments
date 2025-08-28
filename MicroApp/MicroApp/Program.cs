@@ -20,11 +20,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.AddDbContext<UsersDb>(o =>
+// Use separate connection strings per bounded context with a safe fallback to DefaultConnection
+builder.Services.AddDbContext<MicroAppDb>(o =>
     o.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddDbContext<CardsDb>(o =>
-    o.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Validators
 builder.Services.AddSingleton<IValidator<CreateUserRequest>, CreateUserRequestValidator>();
@@ -57,14 +56,12 @@ app.UseSwagger().UseSwaggerUI();
 // Ensure database exists and seed initial data
 using (var scope = app.Services.CreateScope())
 {
-    var usersDb = scope.ServiceProvider.GetRequiredService<UsersDb>();
-    var cardsDb = scope.ServiceProvider.GetRequiredService<CardsDb>();
+    var db = scope.ServiceProvider.GetRequiredService<MicroAppDb>();
 
-    // Apply EF Core migrations
-    await usersDb.Database.MigrateAsync();
-    await cardsDb.Database.MigrateAsync();
+    // Create database if not exists
+    await db.Database.EnsureCreatedAsync();
 
-    await UsersDbSeeder.SeedAsync(usersDb);
+    await UsersDbSeeder.SeedAsync(db);
 
     // Create default admin user if not exists
     var defaultAdminEmail = "admin@microapp.local"; // hard-coded email
@@ -72,11 +69,11 @@ using (var scope = app.Services.CreateScope())
     var adminPassword = builder.Configuration["DefaultAdmin:Password"];
     if (!string.IsNullOrWhiteSpace(adminPassword))
     {
-        var exists = await usersDb.Users.AnyAsync(u => u.Email == defaultAdminEmail);
+        var exists = await db.Users.AnyAsync(u => u.Email == defaultAdminEmail);
         if (!exists)
         {
-            var role = await usersDb.Roles.FirstOrDefaultAsync(r => r.Name == "CEO")
-                       ?? await usersDb.Roles.FirstAsync(); // fallback to any role if CEO not found
+            var role = await db.Roles.FirstOrDefaultAsync(r => r.Name == "CEO")
+                       ?? await db.Roles.FirstAsync(); // fallback to any role if CEO not found
             var pepper = builder.Configuration["Security:HashPepper"] ?? string.Empty;
             var (hash, salt) = Hashing.HashSecret(adminPassword, null, pepper);
             var admin = new User
@@ -89,8 +86,8 @@ using (var scope = app.Services.CreateScope())
                 HashSalt = salt,
                 CreatedAt = DateTime.UtcNow
             };
-            usersDb.Users.Add(admin);
-            await usersDb.SaveChangesAsync();
+            db.Users.Add(admin);
+            await db.SaveChangesAsync();
         }
     }
 }
@@ -112,7 +109,7 @@ app.MapUsersEndpoints();
 app.MapRolesEndpoints();
 app.MapCardsEndpoints();
 
-app.MapGet("/me", async (ClaimsPrincipal user, UsersDb db) =>
+app.MapGet("/me", async (ClaimsPrincipal user, MicroAppDb db) =>
 {
     var sub = user.FindFirstValue(JwtRegisteredClaimNames.Sub) ?? user.FindFirstValue(ClaimTypes.NameIdentifier);
     if (sub is null) return Results.Unauthorized();
@@ -130,7 +127,7 @@ app.MapGet("/me", async (ClaimsPrincipal user, UsersDb db) =>
     });
 }).RequireAuthorization();
 
-app.MapPost("/internal/users", async (HttpRequest http, UsersDb db) =>
+app.MapPost("/internal/users", async (HttpRequest http, MicroAppDb db) =>
 {
     if (http.Headers["X-Internal-ApiKey"] != builder.Configuration["InternalApiKey"]) 
         return Results.Unauthorized();
@@ -162,7 +159,7 @@ app.MapPost("/internal/users", async (HttpRequest http, UsersDb db) =>
 }).ExcludeFromDescription(); // hide from Swagger
 
 // Internal auth verify
-app.MapPost("/internal/auth/verify", async (HttpRequest http, UsersDb db) =>
+app.MapPost("/internal/auth/verify", async (HttpRequest http, MicroAppDb db) =>
 {
     if (http.Headers["X-Internal-ApiKey"] != builder.Configuration["InternalApiKey"]) 
         return Results.Unauthorized();

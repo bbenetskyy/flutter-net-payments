@@ -22,7 +22,7 @@ public static class UsersEndpoints
         // Public create user endpoint removed. Users must be created via /internal/users.
 
         // Update user
-        app.MapPut("/users/{id:guid}", async (Guid id, UpdateUserRequest req, UsersDb db, IValidator<UpdateUserRequest> validator) =>
+        app.MapPut("/users/{id:guid}", async (Guid id, UpdateUserRequest req, MicroAppDb db, IValidator<UpdateUserRequest> validator) =>
         {
             var user = await db.Users.FindAsync(id);
             if (user is null) return Results.NotFound();
@@ -59,7 +59,7 @@ public static class UsersEndpoints
         }).RequirePermission(UserPermissions.ManageCompanyUsers);
 
         // List users
-        app.MapGet("/users", async (UsersDb db) =>
+        app.MapGet("/users", async (MicroAppDb db) =>
             Results.Ok(await db.Users
                 .Include(u => u.Role)
                 .OrderBy(x => x.DisplayName)
@@ -73,7 +73,7 @@ public static class UsersEndpoints
         ).RequirePermission(UserPermissions.ViewUsers);
 
         // Verify IBAN/DOB
-        app.MapPost("/users/{id:guid}/verify", async (Guid id, string iban, DateOnly dob, UsersDb db) =>
+        app.MapPost("/users/{id:guid}/verify", async (Guid id, string iban, DateOnly dob, MicroAppDb db) =>
         {
             var user = await db.Users.FindAsync(id);
             if (user is null) return Results.NotFound();
@@ -88,7 +88,7 @@ public static class UsersEndpoints
         }).RequirePermission(UserPermissions.ViewUsers);
     }
 
-    private static async Task<UserResponse> ToResponse(User u, UsersDb db)
+    private static async Task<UserResponse> ToResponse(User u, MicroAppDb db)
     {
         var role = await db.Roles.FindAsync(u.RoleId) ?? throw new InvalidOperationException();
         var eff = u.OverridePermissions ?? role.Permissions;
