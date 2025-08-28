@@ -37,6 +37,5 @@ Global
 		{8FCD53BD-574E-4043-A0AE-04D69A83F0A1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{FA330AE8-2671-4F77-8A4E-B871EDA9F427} = {48A2C7D7-1DD5-48EE-81D9-601D812EDB9B}
 	EndGlobalSection
 EndGlobal

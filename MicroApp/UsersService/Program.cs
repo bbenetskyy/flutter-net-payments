@@ -18,7 +18,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 builder.Services.AddDbContext<UsersDb>(o =>
-    o.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    o.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -54,8 +54,49 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<UsersDb>();
 
-    // Apply EF Core migrations
-    await db.Database.MigrateAsync();
+    // Ensure database exists without migrations
+    await db.Database.EnsureCreatedAsync();
+
+    // Idempotent schema bootstrap for PostgreSQL when DB already exists (no EF migrations used)
+    var createSql = @"
+CREATE TABLE IF NOT EXISTS ""Roles"" (
+    ""Id"" uuid NOT NULL,
+    ""Name"" character varying(100) NOT NULL,
+    ""Permissions"" bigint NOT NULL,
+    ""CreatedAt"" timestamptz NOT NULL,
+    CONSTRAINT ""PK_Roles"" PRIMARY KEY (""Id"")
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ""IX_Roles_Name"" ON ""Roles"" (""Name"");
+
+CREATE TABLE IF NOT EXISTS ""Users"" (
+    ""Id"" uuid NOT NULL,
+    ""Email"" character varying(256) NOT NULL,
+    ""DisplayName"" character varying(200) NOT NULL,
+    ""PasswordHash"" character varying(200) NOT NULL,
+    ""IbanHash"" character varying(256) NULL,
+    ""DobHash"" character varying(256) NULL,
+    ""HashSalt"" character varying(64) NULL,
+    ""RoleId"" uuid NOT NULL,
+    ""OverridePermissions"" bigint NULL,
+    ""CreatedAt"" timestamptz NOT NULL,
+    ""UpdatedAt"" timestamptz NULL,
+    CONSTRAINT ""PK_Users"" PRIMARY KEY (""Id"")
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ""IX_Users_Email"" ON ""Users"" (""Email"");
+CREATE INDEX IF NOT EXISTS ""IX_Users_RoleId"" ON ""Users"" (""RoleId"");
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'FK_Users_Roles_RoleId'
+    ) THEN
+        ALTER TABLE ""Users"" ADD CONSTRAINT ""FK_Users_Roles_RoleId""
+        FOREIGN KEY (""RoleId"") REFERENCES ""Roles"" (""Id"") ON DELETE CASCADE;
+    END IF;
+END
+$$;
+";
+    await db.Database.ExecuteSqlRawAsync(createSql);
 
     await UsersDbSeeder.SeedAsync(db);
 

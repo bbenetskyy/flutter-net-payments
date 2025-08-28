@@ -12,7 +12,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Services
 builder.Services.AddOpenApi();
 builder.Services.AddDbContext<CardsDb>(o =>
-    o.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    o.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -44,6 +44,13 @@ builder.Services.AddAuthentication("Bearer").AddJwtBearer(o =>
 });
 builder.Services.AddAuthorization();
 
+// Named HTTP client to talk to UsersService for permission checks
+builder.Services.AddHttpClient("users", c =>
+{
+    var baseAddress = builder.Configuration["Services:Users"]!;
+    c.BaseAddress = new Uri(baseAddress);
+});
+
 var app = builder.Build();
 app.UseSwagger().UseSwaggerUI();
 
@@ -51,7 +58,26 @@ app.UseSwagger().UseSwaggerUI();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<CardsDb>();
-    await db.Database.MigrateAsync();
+    await db.Database.EnsureCreatedAsync();
+
+    // Idempotent schema bootstrap for PostgreSQL when DB already exists (no EF migrations used)
+    var createSql = @"
+CREATE TABLE IF NOT EXISTS ""Cards"" (
+    ""Id"" uuid NOT NULL,
+    ""Type"" integer NOT NULL,
+    ""Name"" character varying(200) NOT NULL,
+    ""SingleTransactionLimit"" numeric(18,2) NOT NULL,
+    ""MonthlyLimit"" numeric(18,2) NOT NULL,
+    ""AssignedUserId"" uuid NULL,
+    ""Options"" bigint NOT NULL,
+    ""Printed"" boolean NOT NULL DEFAULT FALSE,
+    ""CreatedAt"" timestamptz NOT NULL,
+    ""UpdatedAt"" timestamptz NULL,
+    CONSTRAINT ""PK_Cards"" PRIMARY KEY (""Id"")
+);
+CREATE INDEX IF NOT EXISTS ""IX_Cards_AssignedUserId"" ON ""Cards"" (""AssignedUserId"");
+";
+    await db.Database.ExecuteSqlRawAsync(createSql);
 }
 
 if (app.Environment.IsDevelopment())

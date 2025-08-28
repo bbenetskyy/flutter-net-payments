@@ -3,6 +3,7 @@ using CardsService.Domain.Enums;
 using CardsService.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
+using CardsService.Presentation.Security;
 
 namespace CardsService.Presentation.Endpoints;
 
@@ -91,6 +92,13 @@ public static class CardsEndpoints
             var card = await db.Cards.FirstOrDefaultAsync(c => c.Id == id);
             return card is null ? Results.NotFound() : Results.Ok(ToDto(card));
         }).RequireAuthorization();
+
+        // Get all cards (requires ViewCards permission)
+        app.MapGet("/cards", async (CardsDb db) =>
+        {
+            var items = await db.Cards.AsNoTracking().ToListAsync();
+            return Results.Ok(items.Select(ToDto));
+        }).RequirePermission(UserPermissions.ViewCards);
     }
 
     private static string? ValidateCreate(CreateCardRequest req)
