@@ -11,3 +11,9 @@
       context: .
       dockerfile: CardsService/Dockerfile
 
+  microapp:
+    image: microapp
+    build:
+      context: .
+      dockerfile: MicroApp/Dockerfile
+

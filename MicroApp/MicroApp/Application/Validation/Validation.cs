@@ -1,7 +1,7 @@
 using System.Net.Mail;
-using Common.Security;
+using MicroApp.Security;
 
-namespace Common.Validation;
+namespace MicroApp.Validation;
 
 public static class Validation
 {

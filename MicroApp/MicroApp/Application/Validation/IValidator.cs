@@ -1,4 +1,4 @@
-namespace Common.Validation;
+namespace MicroApp.Validation;
 
 public interface IValidator<T>
 {
