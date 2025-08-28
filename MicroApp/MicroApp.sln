@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UsersService", "UsersServic
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CardsService", "CardsService\CardsService.csproj", "{8FCD53BD-574E-4043-A0AE-04D69A83F0A1}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PaymentsService", "PaymentsService\PaymentsService.csproj", "{A515EE4D-ACF2-4362-B21E-D320B4D4E33F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -35,6 +37,10 @@ Global
 		{8FCD53BD-574E-4043-A0AE-04D69A83F0A1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8FCD53BD-574E-4043-A0AE-04D69A83F0A1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8FCD53BD-574E-4043-A0AE-04D69A83F0A1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A515EE4D-ACF2-4362-B21E-D320B4D4E33F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A515EE4D-ACF2-4362-B21E-D320B4D4E33F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A515EE4D-ACF2-4362-B21E-D320B4D4E33F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A515EE4D-ACF2-4362-B21E-D320B4D4E33F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 	EndGlobalSection

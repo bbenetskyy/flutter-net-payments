@@ -11,3 +11,9 @@
       context: .
       dockerfile: CardsService/Dockerfile
 
+  paymentsservice:
+    image: paymentsservice
+    build:
+      context: .
+      dockerfile: PaymentsService/Dockerfile
+
