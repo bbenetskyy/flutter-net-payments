@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace MicroApp.Security;
+namespace MicroApp.Application.Security;
 
 public static class JwtSigning
 {

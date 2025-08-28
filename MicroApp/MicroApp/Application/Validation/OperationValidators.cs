@@ -1,8 +1,7 @@
-using CardsService.Domain.Entities;
-using CardsService.Presentation.Endpoints;
-using Common.Validation;
+using MicroApp.Domain.Entities;
+using MicroApp.Presentation.Endpoints;
 
-namespace CardsService.Application.Validation;
+namespace MicroApp.Application.Validation;
 
 public readonly record struct UpdateCardOperation(Card Card, UpdateCardRequest Request);
 public sealed class UpdateCardOperationValidator : IValidator<UpdateCardOperation>

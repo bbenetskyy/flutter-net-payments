@@ -1,8 +1,7 @@
-using CardsService.Domain.Entities;
+using MicroApp.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
-using CardsService.Domain.Enums;
 
-namespace CardsService.Infrastructure.Persistence;
+namespace MicroApp.Infrastructure.Persistence;
 
 public class CardsDb(DbContextOptions<CardsDb> options) : DbContext(options)
 {

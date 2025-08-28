@@ -1,4 +1,4 @@
-namespace CardsService.Domain.Enums;
+namespace MicroApp.Domain.Enums;
 
 public enum CardType
 {

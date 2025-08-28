@@ -1,17 +1,18 @@
-using CardsService.Domain.Entities;
-using CardsService.Domain.Enums;
-using CardsService.Infrastructure.Persistence;
+using Azure.Core;
+using MicroApp.Application.Validation;
+using MicroApp.Domain.Entities;
+using MicroApp.Domain.Enums;
+using MicroApp.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Authorization;
 
-namespace CardsService.Presentation.Endpoints;
+namespace MicroApp.Presentation.Endpoints;
 
 public static class CardsEndpoints
 {
     public static void MapCardsEndpoints(this IEndpointRouteBuilder app)
     {
         // Create a card
-        app.MapPost("/cards", async (CreateCardRequest req, CardsDb db, Common.Validation.IValidator<CreateCardRequest> validator) =>
+        app.MapPost("/cards", async (CreateCardRequest req, CardsDb db, IValidator<CreateCardRequest> validator) =>
         {
             var vr = validator.Validate(req);
             if (!vr.IsValid) return Results.BadRequest(vr.Error);
@@ -32,7 +33,7 @@ public static class CardsEndpoints
         }).RequireAuthorization();
 
         // Assign to user
-        app.MapPost("/cards/{id:guid}/assign", async (Guid id, AssignCardRequest req, CardsDb db, Common.Validation.IValidator<AssignCardRequest> reqValidator, Common.Validation.IValidator<CardsService.Application.Validation.AssignCardOperation> opValidator) =>
+        app.MapPost("/cards/{id:guid}/assign", async (Guid id, AssignCardRequest req, CardsDb db,IValidator<AssignCardRequest> reqValidator,IValidator<AssignCardOperation> opValidator) =>
         {
             var vr = reqValidator.Validate(req);
             if (!vr.IsValid) return Results.BadRequest(vr.Error);
@@ -40,7 +41,7 @@ public static class CardsEndpoints
             var card = await db.Cards.FindAsync(id);
             if (card is null) return Results.NotFound();
 
-            var op = new CardsService.Application.Validation.AssignCardOperation(card, req);
+            var op = new AssignCardOperation(card, req);
             var vop = opValidator.Validate(op);
             if (!vop.IsValid) return Results.BadRequest(vop.Error);
 
@@ -51,7 +52,7 @@ public static class CardsEndpoints
         }).RequireAuthorization();
 
         // Update/manage card
-        app.MapPut("/cards/{id:guid}", async (Guid id, UpdateCardRequest req, CardsDb db, Common.Validation.IValidator<UpdateCardRequest> reqValidator, Common.Validation.IValidator<CardsService.Application.Validation.UpdateCardOperation> opValidator) =>
+        app.MapPut("/cards/{id:guid}", async (Guid id, UpdateCardRequest req, CardsDb db,IValidator<UpdateCardRequest> reqValidator,IValidator<UpdateCardOperation> opValidator) =>
         {
             var card = await db.Cards.FindAsync(id);
             if (card is null) return Results.NotFound();
@@ -59,7 +60,7 @@ public static class CardsEndpoints
             var vr = reqValidator.Validate(req);
             if (!vr.IsValid) return Results.BadRequest(vr.Error);
 
-            var op = new CardsService.Application.Validation.UpdateCardOperation(card, req);
+            var op = new UpdateCardOperation(card, req);
             var vop = opValidator.Validate(op);
             if (!vop.IsValid) return Results.BadRequest(vop.Error);
 

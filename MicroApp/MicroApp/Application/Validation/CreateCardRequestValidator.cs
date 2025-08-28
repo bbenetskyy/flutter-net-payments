@@ -1,7 +1,6 @@
-using CardsService.Presentation.Endpoints;
-using Common.Validation;
+using MicroApp.Presentation.Endpoints;
 
-namespace CardsService.Application.Validation;
+namespace MicroApp.Application.Validation;
 
 public sealed class CreateCardRequestValidator : IValidator<CreateCardRequest>
 {

@@ -1,6 +1,6 @@
-using CardsService.Domain.Enums;
+using MicroApp.Domain.Enums;
 
-namespace CardsService.Domain.Entities;
+namespace MicroApp.Domain.Entities;
 
 public class Card
 {

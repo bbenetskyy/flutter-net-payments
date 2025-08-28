@@ -1,4 +1,4 @@
-namespace MicroApp.Validation;
+namespace MicroApp.Application.Validation;
 
 public sealed class ValidationResult
 {

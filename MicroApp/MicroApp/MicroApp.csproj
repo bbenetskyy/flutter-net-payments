@@ -21,12 +21,4 @@
       </Content>
     </ItemGroup>
 
-    <ItemGroup>
-      <ProjectReference Include="..\MicroApp.Common\Common.csproj" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <Folder Include="Infrastructure\Persistence\Migrations\" />
-    </ItemGroup>
-
 </Project>

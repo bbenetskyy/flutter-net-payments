@@ -21,8 +21,4 @@
       </Content>
     </ItemGroup>
 
-    <ItemGroup>
-      <ProjectReference Include="..\MicroApp.Common\Common.csproj" />
-    </ItemGroup>
-
 </Project>

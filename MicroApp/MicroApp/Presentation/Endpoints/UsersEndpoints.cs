@@ -1,5 +1,7 @@
 using System.Globalization;
 using MicroApp.Application.DTOs;
+using MicroApp.Application.Security;
+using MicroApp.Application.Validation;
 using MicroApp.Domain.Entities;
 using MicroApp.Domain.Enums;
 using MicroApp.Infrastructure.Persistence;

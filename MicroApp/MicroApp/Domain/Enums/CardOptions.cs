@@ -1,6 +1,4 @@
-using System;
-
-namespace CardsService.Domain.Enums;
+namespace MicroApp.Domain.Enums;
 
 [Flags]
 public enum CardOptions
