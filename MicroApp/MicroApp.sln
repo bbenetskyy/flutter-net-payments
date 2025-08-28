@@ -9,7 +9,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Common", "MicroApp.Common\C
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AuthService", "MicroApp.AuthService\AuthService.csproj", "{44C6A6B8-33FE-4CB2-B416-08B87ED51DF2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MicroApp.UsersService", "MicroApp.UsersService\MicroApp.UsersService.csproj", "{FA330AE8-2671-4F77-8A4E-B871EDA9F427}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UsersService", "UsersService\UsersService.csproj", "{FA330AE8-2671-4F77-8A4E-B871EDA9F427}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CardsService", "CardsService\CardsService.csproj", "{8FCD53BD-574E-4043-A0AE-04D69A83F0A1}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -29,10 +31,12 @@ Global
 		{FA330AE8-2671-4F77-8A4E-B871EDA9F427}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FA330AE8-2671-4F77-8A4E-B871EDA9F427}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FA330AE8-2671-4F77-8A4E-B871EDA9F427}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8FCD53BD-574E-4043-A0AE-04D69A83F0A1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8FCD53BD-574E-4043-A0AE-04D69A83F0A1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8FCD53BD-574E-4043-A0AE-04D69A83F0A1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8FCD53BD-574E-4043-A0AE-04D69A83F0A1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{AB7126B9-7B31-4E30-91B9-F4CF920B67E2} = {48A2C7D7-1DD5-48EE-81D9-601D812EDB9B}
-		{44C6A6B8-33FE-4CB2-B416-08B87ED51DF2} = {48A2C7D7-1DD5-48EE-81D9-601D812EDB9B}
 		{FA330AE8-2671-4F77-8A4E-B871EDA9F427} = {48A2C7D7-1DD5-48EE-81D9-601D812EDB9B}
 	EndGlobalSection
 EndGlobal

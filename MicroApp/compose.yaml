@@ -5,3 +5,9 @@
       context: .
       dockerfile: MicroApp.UsersService/Dockerfile
 
+  cardsservice:
+    image: cardsservice
+    build:
+      context: .
+      dockerfile: CardsService/Dockerfile
+

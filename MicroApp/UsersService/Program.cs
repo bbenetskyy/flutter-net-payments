@@ -53,9 +53,8 @@ app.UseSwagger().UseSwaggerUI();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<UsersDb>();
-    await db.Database.EnsureCreatedAsync();
 
-    // Apply EF Core migrations (replaces previous ad-hoc SQL hotfix)
+    // Apply EF Core migrations
     await db.Database.MigrateAsync();
 
     await UsersDbSeeder.SeedAsync(db);
