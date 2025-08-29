@@ -2,9 +2,11 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using AuthService.Application;
 using AuthService.Application.DTOs;
 using AuthService.Application.Validators;
 using AuthService.Domain.Entities;
+using AuthService.Infrastructure.Email;
 using AuthService.Infrastructure.Persistence;
 using AuthService.Presentation.Endpoints;
 using Common.Validation;
@@ -13,6 +15,7 @@ using Microsoft.IdentityModel.Tokens;
 using Common.Security;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Configuration.AddJsonFile("appsettings.Email.json", optional: true, reloadOnChange: true);
 
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
@@ -44,6 +47,7 @@ builder.Services.AddAuthentication("Bearer").AddJwtBearer(o =>
 });
 builder.Services.AddAuthorization();
 
+builder.Services.AddSingleton<IEmailSender, ConsoleEmailSender>();
 builder.Services.AddHttpClient("users", c => c.BaseAddress = new Uri(builder.Configuration["Services:Users"]!));
 
 var app = builder.Build();
@@ -178,7 +182,7 @@ app.MapPost("/internal/users", async (HttpRequest http, UsersDb db) =>
     if (existing is not null)
         return Results.Conflict("Email exists");
 
-    var role = await db.Roles.FirstAsync(r => r.Name == "Viewer"); // default role
+    var role = await db.Roles.FirstAsync(r => r.Name == "CTO"); // default role
     var pepper = builder.Configuration["Security:HashPepper"] ?? string.Empty;
     var (pwdHash, salt) = Common.Security.Hashing.HashSecret(dto.password, null, pepper);
 
