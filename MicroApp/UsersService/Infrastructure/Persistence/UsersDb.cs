@@ -1,5 +1,6 @@
 using AuthService.Domain.Entities;
 using AuthService.Domain.Enums;
+using Common.Validation;
 using Microsoft.EntityFrameworkCore;
 
 namespace AuthService.Infrastructure.Persistence;
@@ -26,10 +27,12 @@ public class UsersDb(DbContextOptions<UsersDb> options) : DbContext(options)
             e.HasIndex(x => x.Email).IsUnique();
             e.Property(x => x.DisplayName).IsRequired().HasMaxLength(200);
             e.Property(x => x.PasswordHash).IsRequired().HasMaxLength(200);
-            e.Property(x => x.IbanHash).HasMaxLength(256);
+            // Map Iban property to IbanHash column to avoid DB schema changes
+            e.Property(u => u.Iban).HasColumnName("IbanHash").HasMaxLength(256);
             e.Property(x => x.DobHash).HasMaxLength(256);
             e.Property(x => x.HashSalt).HasMaxLength(64);
             e.Property(x => x.OverridePermissions).HasConversion<long>();
+            e.Property(x => x.VerificationStatus).HasConversion<int>();
             e.HasOne(x => x.Role).WithMany(r => r.Users).HasForeignKey(x => x.RoleId);
         });
     }

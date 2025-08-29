@@ -30,49 +30,46 @@ public static class UsersEndpoints
         // Admin create user endpoint
         app.MapPost("/users", async (AdminCreateUserRequest req, UsersDb db, AuthService.Application.IEmailSender emailSender) =>
         {
+            // Validation
             if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.DisplayName))
-                return Results.BadRequest("Email and displayName are required");
+                return Results.BadRequest("Email and DisplayName are required");
 
-            var email = req.Email.Trim();
-            var name = req.DisplayName.Trim();
+            // Check if user already exists
+            var existing = await db.Users.FirstOrDefaultAsync(u => u.Email == req.Email.Trim());
+            if (existing is not null) return Results.Conflict("User with this email already exists");
 
-            if (await db.Users.AnyAsync(u => u.Email == email))
-                return Results.Conflict("Email already exists");
-
-            // Default role is Viewer
-            var defaultRole = await db.Roles.FirstOrDefaultAsync(r => r.Name == "CTO") ?? await db.Roles.FirstAsync();
-            Guid effectiveRoleId = defaultRole.Id;
-
-            if (req.DesiredRoleId is Guid rid)
+            // Get role or use default
+            Role? role;
+            if (req.DesiredRoleId.HasValue)
             {
-                var role = await db.Roles.FindAsync(rid);
+                role = await db.Roles.FindAsync(req.DesiredRoleId.Value);
                 if (role is null) return Results.BadRequest("Desired role not found");
-                // Final assignment occurs on verification accept; for now, keep default
-                effectiveRoleId = defaultRole.Id;
+            }
+            else
+            {
+                role = await db.Roles.FirstAsync(r => r.Name == "CTO"); // default role
             }
 
-            // Generate a temporary random password to satisfy DB constraint; user will set a new one during verification
-            var tempPassword = Guid.NewGuid().ToString("N");
-            var (pwdHash, salt) = Common.Security.Hashing.HashSecret(tempPassword, null, pepper);
-
+            // Create user with pending verification status
             var user = new User
             {
                 Id = Guid.NewGuid(),
-                Email = email,
-                DisplayName = name,
-                RoleId = effectiveRoleId,
-                PasswordHash = pwdHash,
-                HashSalt = salt,
-                CreatedAt = DateTime.UtcNow
+                Email = req.Email.Trim(),
+                DisplayName = req.DisplayName.Trim(),
+                RoleId = role.Id,
+                PasswordHash = string.Empty, // Will be set during verification
+                HashSalt = Guid.NewGuid().ToString(),
+                VerificationStatus = VerificationStatus.Pending // Set verification status to Pending
             };
 
-            // Optional pre-provide IBAN/DOB to hash
+            // Hash IBAN if provided
             if (!string.IsNullOrWhiteSpace(req.Iban))
             {
-                var ibanNorm = Hashing.NormalizeIban(req.Iban);
-                var (h, s) = Hashing.HashSecret(ibanNorm, user.HashSalt, pepper);
-                user.IbanHash = h; user.HashSalt ??= s;
+                var (h, s2) = Hashing.HashSecret(req.Iban, user.HashSalt, pepper);
+                user.Iban = h; user.HashSalt ??= s2;
             }
+
+            // Hash date of birth if provided
             if (req.DateOfBirth is DateOnly dob)
             {
                 var dobStr = dob.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
@@ -93,9 +90,9 @@ public static class UsersEndpoints
             // Send email with verification code/link
             var link = $"{builder.Configuration["Frontend:VerificationUrl"] ?? "https://app.local/verify"}?id={v.Id}&code={v.Code}";
             await emailSender.SendAsync(user.Email, "Verify your account", $"Hello {user.DisplayName},\n\nPlease verify your account.\nVerification code: {v.Code}\nOr click: {link}\n\nIf you were invited by admin, you can set your password during verification.");
-
             return Results.Created($"/users/{user.Id}", new { userId = user.Id, verification = v });
-        }).RequirePermission(UserPermissions.ManageCompanyUsers);
+        })
+        .RequirePermission(UserPermissions.ManageCompanyUsers);
 
         // Public create user endpoint removed. Users must be created via /internal/users.
 
@@ -194,9 +191,8 @@ public static class UsersEndpoints
 
             if (req.Iban is not null)
             {
-                var ibanNorm = Hashing.NormalizeIban(req.Iban);
-                var (h, s) = Hashing.HashSecret(ibanNorm, user.HashSalt, pepper);
-                user.IbanHash = h; user.HashSalt ??= s;
+                // Store plain IBAN (normalized)
+                user.Iban = Hashing.NormalizeIban(req.Iban);
             }
             if (req.DateOfBirth is not null)
             {
@@ -214,11 +210,16 @@ public static class UsersEndpoints
             Results.Ok(await db.Users
                 .Include(u => u.Role)
                 .OrderBy(x => x.DisplayName)
-                .Select(u => new {
-                    u.Id, u.Email, u.DisplayName,
+                .Select(u => new
+                {
+                    u.Id,
+                    u.Email,
+                    u.DisplayName,
                     Role = u.Role.Name,
                     EffectivePermissions = (long)(u.OverridePermissions ?? u.Role.Permissions),
-                    IbanHash = u.IbanHash, DobHash = u.DobHash,
+                    Iban = u.Iban,
+                    DobHash = u.DobHash,
+                    u.VerificationStatus,
                     u.CreatedAt
                 }).ToListAsync())
         ).RequirePermission(UserPermissions.ViewUsers);
@@ -234,7 +235,7 @@ public static class UsersEndpoints
             var dobStr = dob.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
             var (dobHash, _) = Hashing.HashSecret(dobStr, user.HashSalt, pepper);
 
-            var ok = user.IbanHash == ibanHash && user.DobHash == dobHash;
+            var ok = user.Iban == ibanHash && user.DobHash == dobHash;
             return ok ? Results.Ok() : Results.Unauthorized();
         }).RequirePermission(UserPermissions.ViewUsers);
     }
@@ -246,7 +247,8 @@ public static class UsersEndpoints
         return new UserResponse(
             u.Id, u.Email, u.DisplayName,
             role.Id, role.Name, eff,
-            IbanHash: u.IbanHash, DobHash: u.DobHash, u.CreatedAt);
+            u.VerificationStatus,
+            Iban: u.Iban, DobHash: u.DobHash, u.CreatedAt);
     }
 }
 

@@ -38,10 +38,12 @@ builder.Services.AddAuthentication("Bearer").AddJwtBearer(o =>
     var cfg = builder.Configuration;
     o.TokenValidationParameters = new()
     {
-        ValidateIssuer = true, ValidateAudience = true, ValidateIssuerSigningKey = true,
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateIssuerSigningKey = true,
         ValidIssuer = cfg["Jwt:Issuer"],
         ValidAudience = cfg["Jwt:Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(JwtSigning.GetKeyBytes(cfg["Jwt:Key"])), 
+        IssuerSigningKey = new SymmetricSecurityKey(JwtSigning.GetKeyBytes(cfg["Jwt:Key"])),
         ClockSkew = TimeSpan.Zero
     };
 });
@@ -82,6 +84,7 @@ CREATE TABLE IF NOT EXISTS ""Users"" (
     ""HashSalt"" character varying(64) NULL,
     ""RoleId"" uuid NOT NULL,
     ""OverridePermissions"" bigint NULL,
+    ""VerificationStatus"" integer NOT NULL DEFAULT 0,
     ""CreatedAt"" timestamptz NOT NULL,
     ""UpdatedAt"" timestamptz NULL,
     CONSTRAINT ""PK_Users"" PRIMARY KEY (""Id"")
@@ -96,6 +99,18 @@ BEGIN
     ) THEN
         ALTER TABLE ""Users"" ADD CONSTRAINT ""FK_Users_Roles_RoleId""
         FOREIGN KEY (""RoleId"") REFERENCES ""Roles"" (""Id"") ON DELETE CASCADE;
+    END IF;
+END
+$$;
+
+-- Add VerificationStatus column if it doesn't exist (for existing databases)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'Users' AND column_name = 'VerificationStatus'
+    ) THEN
+        ALTER TABLE ""Users"" ADD COLUMN ""VerificationStatus"" integer NOT NULL DEFAULT 0;
     END IF;
 END
 $$;
@@ -125,6 +140,7 @@ $$;
                 RoleId = role.Id,
                 PasswordHash = hash,
                 HashSalt = salt,
+                VerificationStatus = VerificationStatus.Completed, // Admin is pre-verified
                 CreatedAt = DateTime.UtcNow
             };
             db.Users.Add(admin);
@@ -163,7 +179,9 @@ app.MapGet("/me", async (ClaimsPrincipal user, UsersDb db) =>
     var eff = u.OverridePermissions ?? u.Role.Permissions;
     return Results.Ok(new
     {
-        u.Id, u.Email, u.DisplayName,
+        u.Id,
+        u.Email,
+        u.DisplayName,
         Role = new { u.Role.Id, u.Role.Name },
         EffectivePermissions = eff
     });
@@ -171,7 +189,7 @@ app.MapGet("/me", async (ClaimsPrincipal user, UsersDb db) =>
 
 app.MapPost("/internal/users", async (HttpRequest http, UsersDb db) =>
 {
-    if (http.Headers["X-Internal-ApiKey"] != builder.Configuration["InternalApiKey"]) 
+    if (http.Headers["X-Internal-ApiKey"] != builder.Configuration["InternalApiKey"])
         return Results.Unauthorized();
 
     var dto = await http.ReadFromJsonAsync<InternalCreateUserDto>();
@@ -186,24 +204,25 @@ app.MapPost("/internal/users", async (HttpRequest http, UsersDb db) =>
     var pepper = builder.Configuration["Security:HashPepper"] ?? string.Empty;
     var (pwdHash, salt) = Common.Security.Hashing.HashSecret(dto.password, null, pepper);
 
-    var user = new User 
-    { 
-        Id = Guid.NewGuid(), 
-        Email = dto.email.Trim(), 
-        DisplayName = dto.displayName.Trim(), 
+    var user = new User
+    {
+        Id = Guid.NewGuid(),
+        Email = dto.email.Trim(),
+        DisplayName = dto.displayName.Trim(),
         RoleId = role.Id,
         PasswordHash = pwdHash,
-        HashSalt = salt
+        HashSalt = salt,
+        VerificationStatus = VerificationStatus.Pending // Set verification status to Pending
     };
     db.Users.Add(user);
     await db.SaveChangesAsync();
     return Results.Created($"/users/{user.Id}", new { id = user.Id });
-}).ExcludeFromDescription(); // hide from Swagger
+}).ExcludeFromDescription();
 
 // Internal auth verify
 app.MapPost("/internal/auth/verify", async (HttpRequest http, UsersDb db) =>
 {
-    if (http.Headers["X-Internal-ApiKey"] != builder.Configuration["InternalApiKey"]) 
+    if (http.Headers["X-Internal-ApiKey"] != builder.Configuration["InternalApiKey"])
         return Results.Unauthorized();
 
     var dto = await http.ReadFromJsonAsync<InternalVerifyDto>();
@@ -226,4 +245,3 @@ app.Run();
 
 record InternalCreateUserDto(string email, string displayName, string password);
 record InternalVerifyDto(string email, string password);
-

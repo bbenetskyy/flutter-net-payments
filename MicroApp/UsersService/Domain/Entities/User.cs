@@ -1,4 +1,5 @@
 using AuthService.Domain.Enums;
+using Common.Validation;
 
 namespace AuthService.Domain.Entities;
 
@@ -12,7 +13,7 @@ public sealed class User
     public string PasswordHash { get; set; } = default!;
 
     // Хешовані значення з сіллю/перцем
-    public string? IbanHash { get; set; }          // hex/base64 хеш IBAN
+    public string? Iban { get; set; }          // hex/base64 хеш IBAN
     public string? DobHash { get; set; }           // YYYY-MM-DD -> хеш
     public string? HashSalt { get; set; }          // унікальна сіль на користувача
 
@@ -21,6 +22,8 @@ public sealed class User
     public Role Role { get; set; } = default!;
     public UserPermissions? OverridePermissions { get; set; } // опціонально: явне перекриття
 
+    public VerificationStatus VerificationStatus { get; set; } = VerificationStatus.Pending;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
+    public UserPermissions EffectivePermissions => OverridePermissions ?? Role?.Permissions ?? UserPermissions.None;
 }
