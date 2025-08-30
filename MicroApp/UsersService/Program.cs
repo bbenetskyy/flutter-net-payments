@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using Common.Infrastucture.Persistence;
 using Common.Security;
 using Common.Validation;
 using MicroApp.UsersService;
@@ -20,6 +21,8 @@ builder.Configuration.AddJsonFile("appsettings.Email.json", optional: true, relo
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 builder.Services.AddDbContext<UsersDb>(o =>
+    o.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddDbContext<VerificationsDb>(o =>
     o.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddEndpointsApiExplorer();

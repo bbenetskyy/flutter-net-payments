@@ -6,12 +6,15 @@ using CardsService.Infrastructure.Persistence;
 using CardsService.Presentation.Endpoints;
 using Common.Validation;
 using CardsService.Application.Validation;
+using Common.Infrastucture.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Services
 builder.Services.AddOpenApi();
 builder.Services.AddDbContext<CardsDb>(o =>
+    o.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddDbContext<VerificationsDb>(o =>
     o.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddEndpointsApiExplorer();
@@ -23,6 +26,8 @@ builder.Services.AddSingleton<IValidator<UpdateCardRequest>, UpdateCardRequestVa
 builder.Services.AddSingleton<IValidator<AssignCardRequest>, AssignCardRequestValidator>();
 builder.Services.AddSingleton<IValidator<UpdateCardOperation>, UpdateCardOperationValidator>();
 builder.Services.AddSingleton<IValidator<AssignCardOperation>, AssignCardOperationValidator>();
+builder.Services.AddScoped<IVerificationStore, VerificationStore>();
+builder.Services.AddScoped<ICardVerificationService, CardVerificationService>();
 
 builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
     p.WithOrigins(builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? [])

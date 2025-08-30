@@ -3,6 +3,14 @@ using Common.Security;
 
 namespace Common.Validation;
 
+
+public interface IVerificationStore
+{
+    Task<VerificationDto> Create(VerificationAction action, Guid targetId, Guid createdBy, Guid? assignee);
+    Task<VerificationDto?> Get(Guid id);
+    Task<VerificationDto?> Decide(Guid id, VerificationStatus status);
+}
+
 public static class Validation
 {
     public static bool IsNonEmpty(string? s) => !string.IsNullOrWhiteSpace(s);

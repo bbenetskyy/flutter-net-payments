@@ -8,6 +8,7 @@ using CardsService.Presentation.Security;
 using System.Security.Claims;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using CardsService.Application.Validation;
 using Common.Validation;
 
 namespace CardsService.Presentation.Endpoints;
@@ -16,10 +17,10 @@ public static class CardsEndpoints
 {
     public static void MapCardsEndpoints(this IEndpointRouteBuilder app)
     {
-        var store = new VerificationStore();
-
         // Create a card
-        app.MapPost("/cards", async (CreateCardRequest req, CardsDb db, Common.Validation.IValidator<CreateCardRequest> validator) =>
+        app.MapPost("/cards", async (CreateCardRequest req, CardsDb db,
+            IVerificationStore store,
+            IValidator<CreateCardRequest> validator) =>
         {
             var vr = validator.Validate(req);
             if (!vr.IsValid) return Results.BadRequest(vr.Error);
@@ -28,10 +29,9 @@ public static class CardsEndpoints
             {
                 Id = Guid.NewGuid(),
                 Type = req.Type,
-                Name = req.Name.Trim(),
+                Name = req.Type == CardType.Shared ? req.Name.Trim() : string.Empty,
                 SingleTransactionLimit = req.SingleTransactionLimit,
                 MonthlyLimit = req.MonthlyLimit,
-                Options = req.Options,
                 Printed = false,
             };
             db.Cards.Add(card);
@@ -40,7 +40,9 @@ public static class CardsEndpoints
         }).RequireAuthorization();
 
         // Assign to user
-        app.MapPost("/cards/{id:guid}/assign", async (Guid id, AssignCardRequest req, CardsDb db, Common.Validation.IValidator<AssignCardRequest> reqValidator, Common.Validation.IValidator<CardsService.Application.Validation.AssignCardOperation> opValidator) =>
+        app.MapPost("/cards/{id:guid}/assign", async (Guid id, AssignCardRequest req, CardsDb db,
+            HttpContext http, ICardVerificationService verSvc, 
+            IValidator<AssignCardRequest> reqValidator, IValidator<AssignCardOperation> opValidator) =>
         {
             var vr = reqValidator.Validate(req);
             if (!vr.IsValid) return Results.BadRequest(vr.Error);
@@ -48,18 +50,23 @@ public static class CardsEndpoints
             var card = await db.Cards.FindAsync(id);
             if (card is null) return Results.NotFound();
 
-            var op = new CardsService.Application.Validation.AssignCardOperation(card, req);
-            var vop = opValidator.Validate(op);
+            var vop = opValidator.Validate(new CardsService.Application.Validation.AssignCardOperation(card, req));
             if (!vop.IsValid) return Results.BadRequest(vop.Error);
 
             card.AssignedUserId = req.UserId;
             card.UpdatedAt = DateTime.UtcNow;
             await db.SaveChangesAsync();
-            return Results.Ok(ToDto(card));
+
+            // 🔔 Create verification internally
+            var v = await verSvc.CreateForAssignmentAsync(card.Id, http.User);
+
+            return Results.Ok(new { card = ToDto(card), verification = v });
         }).RequireAuthorization();
 
         // Update/manage card
-        app.MapPut("/cards/{id:guid}", async (Guid id, UpdateCardRequest req, CardsDb db, Common.Validation.IValidator<UpdateCardRequest> reqValidator, Common.Validation.IValidator<CardsService.Application.Validation.UpdateCardOperation> opValidator) =>
+        app.MapPut("/cards/{id:guid}", async (Guid id, UpdateCardRequest req, CardsDb db, 
+            HttpContext http, ICardVerificationService verSvc, 
+            IValidator<UpdateCardRequest> reqValidator, IValidator<UpdateCardOperation> opValidator) =>
         {
             var card = await db.Cards.FindAsync(id);
             if (card is null) return Results.NotFound();
@@ -67,30 +74,48 @@ public static class CardsEndpoints
             var vr = reqValidator.Validate(req);
             if (!vr.IsValid) return Results.BadRequest(vr.Error);
 
-            var op = new CardsService.Application.Validation.UpdateCardOperation(card, req);
+            var op = new UpdateCardOperation(card, req);
             var vop = opValidator.Validate(op);
             if (!vop.IsValid) return Results.BadRequest(vop.Error);
-
+            
+            var wasPrinted = card.Printed;
+            
             if (!string.IsNullOrWhiteSpace(req.Name)) card.Name = req.Name.Trim();
             if (req.Type is CardType ct) card.Type = ct; // Type can be changed unless other rules apply
             if (req.SingleTransactionLimit is decimal stl) card.SingleTransactionLimit = stl;
+            
             if (req.MonthlyLimit is decimal ml) card.MonthlyLimit = ml;
             if (req.Printed is bool printed) card.Printed = printed;
             if (req.Options is CardOptions opts) card.Options = opts;
 
             card.UpdatedAt = DateTime.UtcNow;
             await db.SaveChangesAsync();
-            return Results.Ok(ToDto(card));
+            VerificationDto? verification = null;
+
+            
+            // 🔔 Example trigger: when someone requests printing (false -> true)
+            if (req.Printed is true && wasPrinted == false)
+            {
+                verification = await verSvc.CreateForPrintingAsync(card.Id, http.User);
+            }
+
+            return Results.Ok(new { card = ToDto(card), verification });
         }).RequireAuthorization();
 
-        // Delete card
-        app.MapDelete("/cards/{id:guid}", async (Guid id, CardsDb db) =>
+        app.MapPost("/cards/{id:guid}/request-termination", async (
+            HttpContext http,
+            Guid id,
+            CardsDb db,
+            ICardVerificationService verSvc) =>
         {
-            var card = await db.Cards.FindAsync(id);
+            var card = await db.Cards.AsNoTracking().FirstOrDefaultAsync(c => c.Id == id);
             if (card is null) return Results.NotFound();
-            db.Cards.Remove(card);
-            await db.SaveChangesAsync();
-            return Results.NoContent();
+
+            // 🔔 Create “termination” verification
+            var v = await verSvc.CreateForTerminationAsync(id, http.User);
+
+            // Client will use /cards/verifications/{id}/decision later
+            return Results.Accepted($"/cards/verifications/{v.Id}", v);
         }).RequireAuthorization();
 
         // Optional: Get by id for convenience when testing
@@ -108,7 +133,8 @@ public static class CardsEndpoints
         }).RequirePermission(UserPermissions.ViewCards);
 
         // Create a verification for card actions
-        app.MapPost("/cards/verifications", async (HttpContext http, CreateVerificationRequest req, CardsDb db) =>
+        app.MapPost("/cards/verifications", async (HttpContext http, CreateVerificationRequest req,
+            IVerificationStore store, CardsDb db) =>
         {
             if (req.Action is not (VerificationAction.UserAssignedToCard or VerificationAction.CardPrinting or VerificationAction.CardTermination))
                 return Results.BadRequest("Unsupported action for CardsService");
@@ -128,13 +154,14 @@ public static class CardsEndpoints
         }).RequirePermission(UserPermissions.ViewCards);
 
         // Decide
-        app.MapPost("/cards/verifications/{id:guid}/decision", async (HttpContext http, Guid id, VerificationDecisionRequest req, CardsDb db) =>
+        app.MapPost("/cards/verifications/{id:guid}/decision", async (HttpContext http, Guid id, VerificationDecisionRequest req,
+            IVerificationStore store, CardsDb db) =>
         {
             if (id != req.VerificationId) return Results.BadRequest("Mismatched verification id");
             var uid = GetUserId(http.User);
             if (uid is null) return Results.Unauthorized();
 
-            var v = store.Get(id);
+            var v = await store.Get(id);
             if (v is null) return Results.NotFound();
             if (v.Status != VerificationStatus.Pending) return Results.BadRequest("Already decided");
             if (!string.Equals(v.Code, req.Code, StringComparison.Ordinal)) return Results.Unauthorized();
@@ -145,7 +172,7 @@ public static class CardsEndpoints
             // Permissions via /me
             var me = await GetMeAsync(http);
             if (me is null) return Results.Unauthorized();
-            var perms = (CardsService.Presentation.Security.UserPermissions)me.EffectivePermissions;
+            var perms = (UserPermissions)me.EffectivePermissions;
 
             bool allowed = false;
             if (v.Action == VerificationAction.UserAssignedToCard)
@@ -158,7 +185,7 @@ public static class CardsEndpoints
             if (!allowed) return Results.Forbid();
 
             var newStatus = req.Accept ? VerificationStatus.Completed : VerificationStatus.Rejected;
-            v = store.Decide(id, newStatus);
+            v = await store.Decide(id, newStatus);
             return Results.Ok(v);
         }).RequireAuthorization();
     }
@@ -197,58 +224,6 @@ public static class CardsEndpoints
     }
 }
 
-internal sealed class VerificationStore
-{
-    private readonly CardsDb _db;
-    private readonly Random _rng = new();
-
-    public VerificationStore(CardsDb db)
-    {
-        _db = db;
-    }
-
-    public async Task<VerificationDto> Create(VerificationAction action, Guid targetId, Guid createdBy, Guid? assignee)
-    {
-        var id = Guid.NewGuid();
-        var code = _rng.Next(100000, 1000000).ToString();
-        var verification = new Verification
-        {
-            Id = id,
-            Action = action,
-            TargetId = targetId,
-            Status = VerificationStatus.Pending,
-            Code = code,
-            CreatedBy = createdBy,
-            AssigneeUserId = assignee,
-            CreatedAt = DateTime.UtcNow,
-            DecidedAt = null
-        };
-        _db.Add(verification);
-        await _db.SaveChangesAsync();
-
-        return new VerificationDto(id, action, targetId, VerificationStatus.Pending, code, createdBy, assignee, DateTime.UtcNow, null);
-    }
-
-    public async Task<VerificationDto?> Get(Guid id)
-    {
-        var v = await _db.Set<Verification>().FindAsync(id);
-        if (v is null) return null;
-        return new VerificationDto(v.Id, v.Action, v.TargetId, v.Status, v.Code, v.CreatedBy, v.AssigneeUserId, v.CreatedAt, v.DecidedAt);
-    }
-
-    public async Task<VerificationDto?> Decide(Guid id, VerificationStatus status)
-    {
-        var v = await _db.Set<Verification>().FindAsync(id);
-        if (v is null) return null;
-
-        v.Status = status;
-        v.DecidedAt = DateTime.UtcNow;
-        await _db.SaveChangesAsync();
-
-        return new VerificationDto(v.Id, v.Action, v.TargetId, v.Status, v.Code, v.CreatedBy, v.AssigneeUserId, v.CreatedAt, v.DecidedAt);
-    }
-}
-
 internal sealed class MeResponse
 {
     public Guid Id { get; set; }
@@ -259,8 +234,7 @@ public record CreateCardRequest(
     CardType Type,
     string Name,
     decimal SingleTransactionLimit,
-    decimal MonthlyLimit,
-    CardOptions Options);
+    decimal MonthlyLimit);
 
 public record AssignCardRequest(Guid UserId);
 
