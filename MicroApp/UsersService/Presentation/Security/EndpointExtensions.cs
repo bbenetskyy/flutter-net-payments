@@ -1,7 +1,6 @@
-using AuthService.Domain.Enums;
-using Microsoft.AspNetCore.Builder;
+using MicroApp.UsersService.Domain.Enums;
 
-namespace AuthService.Presentation.Security;
+namespace MicroApp.UsersService.Presentation.Security;
 
 public static class EndpointExtensions
 {

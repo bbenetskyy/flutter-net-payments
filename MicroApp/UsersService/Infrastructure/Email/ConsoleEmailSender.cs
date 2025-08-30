@@ -1,6 +1,6 @@
-using AuthService.Application;
+using MicroApp.UsersService.Application;
 
-namespace AuthService.Infrastructure.Email;
+namespace MicroApp.UsersService.Infrastructure.Email;
 
 public sealed class ConsoleEmailSender : IEmailSender
 {

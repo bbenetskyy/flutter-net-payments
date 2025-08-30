@@ -1,17 +1,16 @@
 using System.Globalization;
-using AuthService.Application.DTOs;
-using AuthService.Application.Validators;
-using AuthService.Domain.Entities;
-using Common.Security;
-using AuthService.Infrastructure.Persistence;
-using Common.Validation;
-using Microsoft.EntityFrameworkCore;
-using AuthService.Domain.Enums;
-using AuthService.Presentation.Security;
-using Common.Validation;
 using System.Security.Claims;
+using Common.Security;
+using Common.Validation;
+using MicroApp.UsersService.Application;
+using MicroApp.UsersService.Application.DTOs;
+using MicroApp.UsersService.Domain.Entities;
+using MicroApp.UsersService.Domain.Enums;
+using MicroApp.UsersService.Infrastructure.Persistence;
+using MicroApp.UsersService.Presentation.Security;
+using Microsoft.EntityFrameworkCore;
 
-namespace AuthService.Presentation.Endpoints;
+namespace MicroApp.UsersService.Presentation.Endpoints;
 
 public static class UsersEndpoints
 {
@@ -22,113 +21,121 @@ public static class UsersEndpoints
 
         string pepper = builder.Configuration["Security:HashPepper"] ?? throw new("Missing pepper");
 
-        // Simple in-memory verification store for user-related actions
-        var store = new VerificationStore();
         // Map of verificationId -> desired role to apply when the user accepts registration
+        //todo this may not be used and should removed later
         var desiredRoleByVerification = new Dictionary<Guid, Guid>();
 
         // Admin create user endpoint
-        app.MapPost("/users", async (AdminCreateUserRequest req, UsersDb db, AuthService.Application.IEmailSender emailSender) =>
-        {
-            // Validation
-            if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.DisplayName))
-                return Results.BadRequest("Email and DisplayName are required");
-
-            // Check if user already exists
-            var existing = await db.Users.FirstOrDefaultAsync(u => u.Email == req.Email.Trim());
-            if (existing is not null) return Results.Conflict("User with this email already exists");
-
-            // Get role or use default
-            Role? role;
-            if (req.DesiredRoleId.HasValue)
+        app.MapPost("/users", async (AdminCreateUserRequest req, UsersDb db, IEmailSender emailSender, IVerificationStore store) =>
             {
-                role = await db.Roles.FindAsync(req.DesiredRoleId.Value);
-                if (role is null) return Results.BadRequest("Desired role not found");
-            }
-            else
-            {
-                role = await db.Roles.FirstAsync(r => r.Name == "CTO"); // default role
-            }
+                // Validation
+                if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.DisplayName))
+                    return Results.BadRequest("Email and DisplayName are required");
 
-            // Create user with pending verification status
-            var user = new User
-            {
-                Id = Guid.NewGuid(),
-                Email = req.Email.Trim(),
-                DisplayName = req.DisplayName.Trim(),
-                RoleId = role.Id,
-                PasswordHash = string.Empty, // Will be set during verification
-                HashSalt = Guid.NewGuid().ToString(),
-                VerificationStatus = VerificationStatus.Pending // Set verification status to Pending
-            };
+                // Check if user already exists
+                var existing = await db.Users.FirstOrDefaultAsync(u => u.Email == req.Email.Trim());
+                if (existing is not null) return Results.Conflict("User with this email already exists");
 
-            // Hash IBAN if provided
-            if (!string.IsNullOrWhiteSpace(req.Iban))
-            {
-                var (h, s2) = Hashing.HashSecret(req.Iban, user.HashSalt, pepper);
-                user.Iban = h; user.HashSalt ??= s2;
-            }
+                // Get role or use default
+                Role? role;
+                if (req.DesiredRoleId.HasValue)
+                {
+                    role = await db.Roles.FindAsync(req.DesiredRoleId.Value);
+                    if (role is null) return Results.BadRequest("Desired role not found");
+                }
+                else
+                {
+                    role = await db.Roles.FirstAsync(r => r.Name == "CTO"); // default role
+                }
 
-            // Hash date of birth if provided
-            if (req.DateOfBirth is DateOnly dob)
-            {
-                var dobStr = dob.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-                var (h, s2) = Hashing.HashSecret(dobStr, user.HashSalt, pepper);
-                user.DobHash = h; user.HashSalt ??= s2;
-            }
+                // Create user with pending verification status
+                var user = new User
+                {
+                    Id = Guid.NewGuid(),
+                    Email = req.Email.Trim(),
+                    DisplayName = req.DisplayName.Trim(),
+                    RoleId = role.Id,
+                    PasswordHash = string.Empty, // Will be set during verification
+                    HashSalt = Guid.NewGuid().ToString(),
+                    VerificationStatus = VerificationStatus.Pending // Set verification status to Pending
+                };
 
-            db.Users.Add(user);
-            await db.SaveChangesAsync();
+                // Hash IBAN if provided
+                if (!string.IsNullOrWhiteSpace(req.Iban))
+                {
+                    var (h, s2) = Hashing.HashSecret(req.Iban, user.HashSalt, pepper);
+                    user.Iban = h;
+                    user.HashSalt ??= s2;
+                }
 
-            // Create verification for the new user; only that user can accept
-            var v = store.Create(VerificationAction.NewUserCreated, user.Id, Guid.Empty, user.Id);
-            if (req.DesiredRoleId is Guid desiredRid)
-            {
-                desiredRoleByVerification[v.Id] = desiredRid;
-            }
+                // Hash date of birth if provided
+                if (req.DateOfBirth is DateOnly dob)
+                {
+                    var dobStr = dob.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+                    var (h, s2) = Hashing.HashSecret(dobStr, user.HashSalt, pepper);
+                    user.DobHash = h;
+                    user.HashSalt ??= s2;
+                }
 
-            // Send email with verification code/link
-            var link = $"{builder.Configuration["Frontend:VerificationUrl"] ?? "https://app.local/verify"}?id={v.Id}&code={v.Code}";
-            await emailSender.SendAsync(user.Email, "Verify your account", $"Hello {user.DisplayName},\n\nPlease verify your account.\nVerification code: {v.Code}\nOr click: {link}\n\nIf you were invited by admin, you can set your password during verification.");
-            return Results.Created($"/users/{user.Id}", new { userId = user.Id, verification = v });
-        })
-        .RequirePermission(UserPermissions.ManageCompanyUsers);
+                db.Users.Add(user);
+                await db.SaveChangesAsync();
+
+                // Create verification for the new user; only that user can accept
+                var v = await store.Create(VerificationAction.NewUserCreated, user.Id, Guid.Empty, user.Id);
+                if (req.DesiredRoleId is Guid desiredRid)
+                {
+                    desiredRoleByVerification[v.TargetId] = desiredRid;
+                }
+
+                // Send email with verification code/link
+                var link =
+                    $"{builder.Configuration["Frontend:VerificationUrl"] ?? "http://localhost:5072/users/"}{v.TargetId}/verify?code={v.Code}";
+                await emailSender.SendAsync(user.Email, "Verify your account",
+                    $"Hello {user.DisplayName},\n\nPlease verify your account.\nVerification code: {v.Code}\nOr click: {link}\n\nIf you were invited by admin, you can set your password during verification.");
+                return Results.Created($"/users/{user.Id}", new { userId = user.Id, verification = v });
+            })
+            .RequirePermission(UserPermissions.ManageCompanyUsers);
 
         // Public create user endpoint removed. Users must be created via /internal/users.
 
         // Create verification for new user acceptance (optionally bind a desiredRoleId)
-        app.MapPost("/users/{id:guid}/verifications", async (Guid id, AdminAssignRoleForVerificationRequest req, UsersDb db, AuthService.Application.IEmailSender emailSender) =>
+        app.MapPost("/users/{id:guid}/verifications", async (Guid id, AdminAssignRoleForVerificationRequest req, UsersDb db,
+            IEmailSender emailSender, IVerificationStore store) =>
         {
             if (req is not null && req.DesiredRoleId is Guid rid)
             {
                 var role = await db.Roles.FindAsync(rid);
                 if (role is null) return Results.BadRequest("Desired role not found");
             }
-            var v = store.Create(VerificationAction.NewUserCreated, id, Guid.Empty, id);
+            var v = await store.Create(VerificationAction.NewUserCreated, id, Guid.Empty, id);
             if (req is not null && req.DesiredRoleId is Guid desiredRid)
             {
-                desiredRoleByVerification[v.Id] = desiredRid;
+                desiredRoleByVerification[v.TargetId] = desiredRid;
             }
 
             // Send verification email
             var user = await db.Users.FindAsync(id);
             if (user is not null)
             {
-                var link = $"{builder.Configuration["Frontend:VerificationUrl"] ?? "https://app.local/verify"}?id={v.Id}&code={v.Code}";
-                await emailSender.SendAsync(user.Email, "Verify your account", $"Hello {user.DisplayName},\n\nPlease verify your account.\nVerification code: {v.Code}\nOr click: {link}\n\nYou can set your password during verification.");
+                var link =
+                    $"{builder.Configuration["Frontend:VerificationUrl"] ?? "http://localhost:5072/users/"}{v.TargetId}/verify?code={v.Code}";
+                await emailSender.SendAsync(user.Email, "Verify your account",
+                    $"Hello {user.DisplayName},\n\nPlease verify your account.\nVerification code: {v.Code}\nOr click: {link}\n\nYou can set your password during verification.");
             }
 
-            return Results.Created($"/users/{id}/verifications/{v.Id}", v);
+            return Results.Created($"/users/{id}/verifications/{v.TargetId}", v);
         }).RequirePermission(UserPermissions.ManageCompanyUsers);
 
         // Decide on new user acceptance (only the new user can accept/reject)
-        app.MapPost("/users/verifications/{vid:guid}/decision", async (HttpContext http, Guid vid, AuthService.Application.DTOs.UsersVerificationDecisionRequest req, UsersDb db) =>
+        app.MapPost("/users/verifications/{vid:guid}/decision", async (HttpContext http, Guid vid,
+            UsersVerificationDecisionRequest req, UsersDb db, IVerificationStore store) =>
         {
             if (vid != req.VerificationId) return Results.BadRequest("Mismatched verification id");
-            var uidStr = http.User.FindFirstValue("sub") ?? http.User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier);
+            var uidStr = http.User.FindFirstValue("sub") ??
+                         http.User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier);
             if (uidStr is null || !Guid.TryParse(uidStr, out var uid)) return Results.Unauthorized();
 
-            var v = store.Get(vid);
+            var v =await store.Get(vid);
             if (v is null) return Results.NotFound();
             if (v.Status != VerificationStatus.Pending) return Results.BadRequest("Already decided");
             if (!string.Equals(v.Code, req.Code, StringComparison.Ordinal)) return Results.Unauthorized();
@@ -136,7 +143,7 @@ public static class UsersEndpoints
             if (v.TargetId != uid) return Results.Forbid();
 
             var newStatus = req.Accept ? VerificationStatus.Completed : VerificationStatus.Rejected;
-            v = store.Decide(vid, newStatus);
+            v = await store.Decide(vid, newStatus);
 
             if (req.Accept)
             {
@@ -185,7 +192,8 @@ public static class UsersEndpoints
             }
             if (req.RoleId is Guid)
             {
-                return Results.BadRequest("Changing role via this endpoint is not allowed. Role must be set during registration verification.");
+                return Results.BadRequest(
+                    "Changing role via this endpoint is not allowed. Role must be set during registration verification.");
             }
             if (req.OverridePermissions is not null) user.OverridePermissions = req.OverridePermissions;
 
@@ -198,7 +206,8 @@ public static class UsersEndpoints
             {
                 var dobStr = req.DateOfBirth.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
                 var (h, s2) = Hashing.HashSecret(dobStr, user.HashSalt, pepper);
-                user.DobHash = h; user.HashSalt ??= s2;
+                user.DobHash = h;
+                user.HashSalt ??= s2;
             }
             user.UpdatedAt = DateTime.UtcNow;
             await db.SaveChangesAsync();
@@ -225,19 +234,24 @@ public static class UsersEndpoints
         ).RequirePermission(UserPermissions.ViewUsers);
 
         // Verify IBAN/DOB
-        app.MapPost("/users/{id:guid}/verify", async (Guid id, string iban, DateOnly dob, UsersDb db) =>
+        app.MapPost("/users/{id:guid}/verify", async (Guid id, string code, UsersDb db, IVerificationStore store) =>
         {
             var user = await db.Users.FindAsync(id);
             if (user is null) return Results.NotFound();
 
-            var ibanNorm = Hashing.NormalizeIban(iban);
-            var (ibanHash, _) = Hashing.HashSecret(ibanNorm, user.HashSalt, pepper);
-            var dobStr = dob.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-            var (dobHash, _) = Hashing.HashSecret(dobStr, user.HashSalt, pepper);
-
-            var ok = user.Iban == ibanHash && user.DobHash == dobHash;
-            return ok ? Results.Ok() : Results.Unauthorized();
-        }).RequirePermission(UserPermissions.ViewUsers);
+            var verificationDetails = await store.Get(id);
+            var ok = verificationDetails?.Code == code &&
+                        verificationDetails.Status == VerificationStatus.Pending;
+            if (!ok)
+            {
+                Results.NotFound();
+            }
+            store.Decide(id, VerificationStatus.Completed);
+            user.VerificationStatus = VerificationStatus.Completed;
+            user.UpdatedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+            return Results.Ok();
+        });
     }
 
     private static async Task<UserResponse> ToResponse(User u, UsersDb db)
@@ -252,27 +266,58 @@ public static class UsersEndpoints
     }
 }
 
-internal sealed class VerificationStore
+public interface IVerificationStore
 {
-    private readonly Dictionary<Guid, VerificationDto> _items = new();
+    Task<VerificationDto> Create(VerificationAction action, Guid targetId, Guid createdBy, Guid? assignee);
+    Task<VerificationDto?> Get(Guid id);
+    Task<VerificationDto?> Decide(Guid id, VerificationStatus status);
+}
+
+internal sealed class VerificationStore : IVerificationStore
+{
+    private readonly UsersDb _db;
     private readonly Random _rng = new();
 
-    public VerificationDto Create(VerificationAction action, Guid targetId, Guid createdBy, Guid? assignee)
+    public VerificationStore(UsersDb db)
     {
-        var id = Guid.NewGuid();
+        _db = db;
+    }
+
+    public async Task<VerificationDto> Create(VerificationAction action, Guid targetId, Guid createdBy, Guid? assignee)
+    {
         var code = _rng.Next(100000, 1000000).ToString();
-        var v = new VerificationDto(id, action, targetId, VerificationStatus.Pending, code, createdBy, assignee, DateTime.UtcNow, null);
-        _items[id] = v;
-        return v;
+        var verification = new Verification
+        {
+            Id = Guid.NewGuid(),
+            Action = action,
+            TargetId = targetId,
+            Status = VerificationStatus.Pending,
+            Code = code,
+            CreatedBy = createdBy,
+            AssigneeUserId = assignee,
+            CreatedAt = DateTime.UtcNow
+        };
+        _db.Verifications.Add(verification);
+        await _db.SaveChangesAsync();
+        return ToDto(verification);
     }
 
-    public VerificationDto? Get(Guid id) => _items.TryGetValue(id, out var v) ? v : null;
-
-    public VerificationDto Decide(Guid id, VerificationStatus status)
+    public async Task<VerificationDto?> Get(Guid id)
     {
-        var v = _items[id];
-        var decided = v with { Status = status, DecidedAt = DateTime.UtcNow };
-        _items[id] = decided;
-        return decided;
+        var verification = await _db.Verifications.FindAsync(id);
+        return verification is null ? null : ToDto(verification);
     }
+
+    public async Task<VerificationDto?> Decide(Guid id, VerificationStatus status)
+    {
+        var verification = await _db.Verifications.FindAsync(id);
+        if (verification is null) return null;
+
+        verification.Status = status;
+        verification.DecidedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return ToDto(verification);
+    }
+
+    private static VerificationDto ToDto(Verification v) => new(v.Id, v.Action, v.TargetId, v.Status, v.Code, v.CreatedBy, v.AssigneeUserId, v.CreatedAt, v.DecidedAt);
 }

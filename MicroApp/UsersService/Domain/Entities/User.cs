@@ -1,7 +1,7 @@
-using AuthService.Domain.Enums;
 using Common.Validation;
+using MicroApp.UsersService.Domain.Enums;
 
-namespace AuthService.Domain.Entities;
+namespace MicroApp.UsersService.Domain.Entities;
 
 public sealed class User
 {

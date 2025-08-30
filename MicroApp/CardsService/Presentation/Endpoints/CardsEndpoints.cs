@@ -199,26 +199,53 @@ public static class CardsEndpoints
 
 internal sealed class VerificationStore
 {
-    private readonly Dictionary<Guid, VerificationDto> _items = new();
+    private readonly CardsDb _db;
     private readonly Random _rng = new();
 
-    public VerificationDto Create(VerificationAction action, Guid targetId, Guid createdBy, Guid? assignee)
+    public VerificationStore(CardsDb db)
+    {
+        _db = db;
+    }
+
+    public async Task<VerificationDto> Create(VerificationAction action, Guid targetId, Guid createdBy, Guid? assignee)
     {
         var id = Guid.NewGuid();
         var code = _rng.Next(100000, 1000000).ToString();
-        var v = new VerificationDto(id, action, targetId, VerificationStatus.Pending, code, createdBy, assignee, DateTime.UtcNow, null);
-        _items[id] = v;
-        return v;
+        var verification = new Verification
+        {
+            Id = id,
+            Action = action,
+            TargetId = targetId,
+            Status = VerificationStatus.Pending,
+            Code = code,
+            CreatedBy = createdBy,
+            AssigneeUserId = assignee,
+            CreatedAt = DateTime.UtcNow,
+            DecidedAt = null
+        };
+        _db.Add(verification);
+        await _db.SaveChangesAsync();
+
+        return new VerificationDto(id, action, targetId, VerificationStatus.Pending, code, createdBy, assignee, DateTime.UtcNow, null);
     }
 
-    public VerificationDto? Get(Guid id) => _items.TryGetValue(id, out var v) ? v : null;
-
-    public VerificationDto Decide(Guid id, VerificationStatus status)
+    public async Task<VerificationDto?> Get(Guid id)
     {
-        var v = _items[id];
-        var decided = v with { Status = status, DecidedAt = DateTime.UtcNow };
-        _items[id] = decided;
-        return decided;
+        var v = await _db.Set<Verification>().FindAsync(id);
+        if (v is null) return null;
+        return new VerificationDto(v.Id, v.Action, v.TargetId, v.Status, v.Code, v.CreatedBy, v.AssigneeUserId, v.CreatedAt, v.DecidedAt);
+    }
+
+    public async Task<VerificationDto?> Decide(Guid id, VerificationStatus status)
+    {
+        var v = await _db.Set<Verification>().FindAsync(id);
+        if (v is null) return null;
+
+        v.Status = status;
+        v.DecidedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        return new VerificationDto(v.Id, v.Action, v.TargetId, v.Status, v.Code, v.CreatedBy, v.AssigneeUserId, v.CreatedAt, v.DecidedAt);
     }
 }
 

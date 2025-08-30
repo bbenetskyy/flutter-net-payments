@@ -1,11 +1,11 @@
-using AuthService.Application.DTOs;
-using AuthService.Domain.Entities;
-using AuthService.Infrastructure.Persistence;
+using MicroApp.UsersService.Application.DTOs;
+using MicroApp.UsersService.Domain.Entities;
+using MicroApp.UsersService.Domain.Enums;
+using MicroApp.UsersService.Infrastructure.Persistence;
+using MicroApp.UsersService.Presentation.Security;
 using Microsoft.EntityFrameworkCore;
-using AuthService.Domain.Enums;
-using AuthService.Presentation.Security;
 
-namespace AuthService.Presentation.Endpoints;
+namespace MicroApp.UsersService.Presentation.Endpoints;
 
 public static class RolesEndpoints
 {

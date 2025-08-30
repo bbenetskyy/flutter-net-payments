@@ -1,4 +1,4 @@
-namespace AuthService.Application.DTOs;
+namespace MicroApp.UsersService.Application.DTOs;
 
 public record UsersVerificationDecisionRequest(
     Guid VerificationId,

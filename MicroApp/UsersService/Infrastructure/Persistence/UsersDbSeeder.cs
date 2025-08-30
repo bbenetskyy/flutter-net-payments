@@ -1,8 +1,8 @@
-using AuthService.Domain.Entities;
-using AuthService.Domain.Enums;
+using MicroApp.UsersService.Domain.Entities;
+using MicroApp.UsersService.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
-namespace AuthService.Infrastructure.Persistence;
+namespace MicroApp.UsersService.Infrastructure.Persistence;
 
 public static class UsersDbSeeder
 {

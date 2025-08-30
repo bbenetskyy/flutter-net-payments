@@ -1,11 +1,10 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using AuthService.Domain.Enums;
-using AuthService.Infrastructure.Persistence;
-using Microsoft.AspNetCore.Http;
+using MicroApp.UsersService.Domain.Enums;
+using MicroApp.UsersService.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
-namespace AuthService.Presentation.Security;
+namespace MicroApp.UsersService.Presentation.Security;
 
 public sealed class PermissionFilter : IEndpointFilter
 {

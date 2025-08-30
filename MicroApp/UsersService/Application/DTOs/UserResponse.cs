@@ -1,7 +1,7 @@
-using AuthService.Domain.Enums;
 using Common.Validation;
+using MicroApp.UsersService.Domain.Enums;
 
-namespace AuthService.Application.DTOs;
+namespace MicroApp.UsersService.Application.DTOs;
 
 public record UserResponse(
     Guid Id,

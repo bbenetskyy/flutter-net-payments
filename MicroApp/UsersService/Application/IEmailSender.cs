@@ -1,4 +1,4 @@
-namespace AuthService.Application;
+namespace MicroApp.UsersService.Application;
 
 public interface IEmailSender
 {

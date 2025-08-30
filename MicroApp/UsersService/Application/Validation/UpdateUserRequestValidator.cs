@@ -1,7 +1,7 @@
-using AuthService.Application.DTOs;
 using Common.Validation;
+using MicroApp.UsersService.Application.DTOs;
 
-namespace AuthService.Application.Validators;
+namespace MicroApp.UsersService.Application.Validation;
 
 public sealed class UpdateUserRequestValidator : IValidator<UpdateUserRequest>
 {
@@ -14,7 +14,7 @@ public sealed class UpdateUserRequestValidator : IValidator<UpdateUserRequest>
         {
             if (string.IsNullOrWhiteSpace(input.Iban))
                 return ValidationResult.Fail("IBAN cannot be blank");
-            if (!Validation.IsValidIban(input.Iban))
+            if (!Common.Validation.Validation.IsValidIban(input.Iban))
                 return ValidationResult.Fail("Invalid IBAN");
         }
 

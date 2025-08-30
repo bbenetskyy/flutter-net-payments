@@ -1,4 +1,4 @@
-namespace AuthService.Domain.Enums;
+namespace MicroApp.UsersService.Domain.Enums;
 
 [Flags]
 public enum UserPermissions : long

@@ -1,10 +1,10 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using Microsoft.IdentityModel.Tokens;
+using AuthService;
 using Common.Security;
+using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -114,9 +114,11 @@ static string CreateJwt(Guid userId, string email, IConfiguration cfg)
     return new JwtSecurityTokenHandler().WriteToken(token);
 }
 
-record RegisterDto(string Email, string Password, string DisplayName);
-record LoginDto(string Email, string Password);
+namespace AuthService
+{
+    record RegisterDto(string Email, string Password, string DisplayName);
+    record LoginDto(string Email, string Password);
 
-record CreateUserInternalResponse(Guid id);
-record VerifyInternalResponse(Guid id);
-
+    record CreateUserInternalResponse(Guid id);
+    record VerifyInternalResponse(Guid id);
+}

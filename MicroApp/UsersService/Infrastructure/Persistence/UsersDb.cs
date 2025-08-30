@@ -1,14 +1,14 @@
-using AuthService.Domain.Entities;
-using AuthService.Domain.Enums;
-using Common.Validation;
+using MicroApp.UsersService.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
-namespace AuthService.Infrastructure.Persistence;
+namespace MicroApp.UsersService.Infrastructure.Persistence;
 
 public class UsersDb(DbContextOptions<UsersDb> options) : DbContext(options)
 {
     public DbSet<User> Users => Set<User>();
     public DbSet<Role> Roles => Set<Role>();
+    public DbSet<Verification> Verifications => Set<Verification>();
+
 
     protected override void OnModelCreating(ModelBuilder b)
     {

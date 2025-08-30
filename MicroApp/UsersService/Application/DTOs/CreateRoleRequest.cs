@@ -1,6 +1,6 @@
-using AuthService.Domain.Enums;
+using MicroApp.UsersService.Domain.Enums;
 
-namespace AuthService.Application.DTOs;
+namespace MicroApp.UsersService.Application.DTOs;
 
 public record CreateRoleRequest(
     string Name,

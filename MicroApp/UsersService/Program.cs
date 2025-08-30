@@ -1,18 +1,17 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
-using AuthService.Application;
-using AuthService.Application.DTOs;
-using AuthService.Application.Validators;
-using AuthService.Domain.Entities;
-using AuthService.Infrastructure.Email;
-using AuthService.Infrastructure.Persistence;
-using AuthService.Presentation.Endpoints;
+using Common.Security;
 using Common.Validation;
+using MicroApp.UsersService;
+using MicroApp.UsersService.Application;
+using MicroApp.UsersService.Application.DTOs;
+using MicroApp.UsersService.Application.Validation;
+using MicroApp.UsersService.Domain.Entities;
+using MicroApp.UsersService.Infrastructure.Email;
+using MicroApp.UsersService.Infrastructure.Persistence;
+using MicroApp.UsersService.Presentation.Endpoints;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using Common.Security;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddJsonFile("appsettings.Email.json", optional: true, reloadOnChange: true);
@@ -29,7 +28,7 @@ builder.Services.AddSwaggerGen();
 // Validators
 builder.Services.AddSingleton<IValidator<CreateUserRequest>, CreateUserRequestValidator>();
 builder.Services.AddSingleton<IValidator<UpdateUserRequest>, UpdateUserRequestValidator>();
-
+builder.Services.AddScoped<IVerificationStore, VerificationStore>();
 builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
     p.WithOrigins(builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? [])
         .AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
@@ -121,7 +120,7 @@ $$;
 
     // Create default admin user if not exists
     var defaultAdminEmail = "admin@microapp.local"; // hard-coded email
-    var defaultAdminName = "System Admin"; // hard-coded display name
+    var defaultAdminName = "System Admin";          // hard-coded display name
     var adminPassword = builder.Configuration["DefaultAdmin:Password"];
     if (!string.IsNullOrWhiteSpace(adminPassword))
     {
@@ -132,7 +131,7 @@ $$;
                        ?? await db.Roles.FirstAsync(); // fallback to any role if CEO not found
             var pepper = builder.Configuration["Security:HashPepper"] ?? string.Empty;
             var (hash, salt) = Common.Security.Hashing.HashSecret(adminPassword, null, pepper);
-            var admin = new AuthService.Domain.Entities.User
+            var admin = new User
             {
                 Id = Guid.NewGuid(),
                 Email = defaultAdminEmail,
@@ -187,7 +186,7 @@ app.MapGet("/me", async (ClaimsPrincipal user, UsersDb db) =>
     });
 }).RequireAuthorization();
 
-app.MapPost("/internal/users", async (HttpRequest http, UsersDb db) =>
+app.MapPost("/internal/users", async (HttpRequest http, UsersDb db, IEmailSender emailSender, IVerificationStore store) =>
 {
     if (http.Headers["X-Internal-ApiKey"] != builder.Configuration["InternalApiKey"])
         return Results.Unauthorized();
@@ -216,6 +215,10 @@ app.MapPost("/internal/users", async (HttpRequest http, UsersDb db) =>
     };
     db.Users.Add(user);
     await db.SaveChangesAsync();
+
+    var v = await store.Create(VerificationAction.NewUserCreated, user.Id, Guid.Empty, user.Id);
+    var link = $"{builder.Configuration["Frontend:VerificationUrl"] ?? "http://localhost:5072/users/"}?id={user.Id}&code={v.Code}";
+    await emailSender.SendAsync(user.Email, "Verify your account", $"Hello {user.DisplayName},\n\nPlease verify your account.\nVerification code: {v.Code}\nOr click: {link}\n\nYou can set your password during verification.");
     return Results.Created($"/users/{user.Id}", new { id = user.Id });
 }).ExcludeFromDescription();
 
@@ -242,6 +245,8 @@ app.MapPost("/internal/auth/verify", async (HttpRequest http, UsersDb db) =>
 
 app.Run();
 
-
-record InternalCreateUserDto(string email, string displayName, string password);
-record InternalVerifyDto(string email, string password);
+namespace MicroApp.UsersService
+{
+    record InternalCreateUserDto(string email, string displayName, string password);
+    record InternalVerifyDto(string email, string password);
+}
