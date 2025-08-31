@@ -28,7 +28,7 @@ public static class UsersEndpoints
         var desiredRoleByVerification = new Dictionary<Guid, Guid>();
 
         // Admin create user endpoint
-        app.MapPost("/users", async (AdminCreateUserRequest req, UsersDb db, IEmailSender emailSender, IVerificationStore store, IHttpClientFactory httpFactory, IConfiguration cfg) =>
+        app.MapPost("/users", async (ClaimsPrincipal currentUser, AdminCreateUserRequest req, UsersDb db, IEmailSender emailSender, IVerificationStore store, IHttpClientFactory httpFactory, IConfiguration cfg) =>
             {
                 // Validation
                 if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.DisplayName))
@@ -62,13 +62,6 @@ public static class UsersEndpoints
                     VerificationStatus = VerificationStatus.Pending // Set verification status to Pending
                 };
 
-                // Hash IBAN if provided
-                if (!string.IsNullOrWhiteSpace(req.Iban))
-                {
-                    var (h, s2) = Hashing.HashSecret(req.Iban, user.HashSalt, pepper);
-                    user.Iban = h;
-                    user.HashSalt ??= s2;
-                }
 
                 // Hash date of birth if provided
                 if (req.DateOfBirth is DateOnly dob)
@@ -94,8 +87,11 @@ public static class UsersEndpoints
                     Console.WriteLine($"Wallet sync failed for user {user.Id}: {ex.Message}");
                 }
 
-                // Create verification for the new user; only that user can accept
-                var v = await store.Create(VerificationAction.NewUserCreated, user.Id, Guid.Empty, user.Id);
+                // Create verification for the new user; createdBy = current admin, assignee = the new user
+                var sub = currentUser.FindFirstValue("sub") ?? currentUser.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (string.IsNullOrWhiteSpace(sub) || !Guid.TryParse(sub, out var createdBy))
+                    return Results.Unauthorized();
+                var v = await store.Create(VerificationAction.NewUserCreated, user.Id, createdBy, user.Id);
                 if (req.DesiredRoleId is Guid desiredRid)
                 {
                     desiredRoleByVerification[v.TargetId] = desiredRid;
@@ -113,7 +109,7 @@ public static class UsersEndpoints
         // Public create user endpoint removed. Users must be created via /internal/users.
 
         // Create verification for new user acceptance (optionally bind a desiredRoleId)
-        app.MapPost("/users/{id:guid}/verifications", async (Guid id, AdminAssignRoleForVerificationRequest req, UsersDb db,
+        app.MapPost("/users/{id:guid}/verifications", async (ClaimsPrincipal currentUser, Guid id, AdminAssignRoleForVerificationRequest req, UsersDb db,
             IEmailSender emailSender, IVerificationStore store) =>
         {
             if (req is not null && req.DesiredRoleId is Guid rid)
@@ -121,7 +117,10 @@ public static class UsersEndpoints
                 var role = await db.Roles.FindAsync(rid);
                 if (role is null) return Results.BadRequest("Desired role not found");
             }
-            var v = await store.Create(VerificationAction.NewUserCreated, id, Guid.Empty, id);
+            var sub2 = currentUser.FindFirstValue("sub") ?? currentUser.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrWhiteSpace(sub2) || !Guid.TryParse(sub2, out var createdBy2))
+                return Results.Unauthorized();
+            var v = await store.Create(VerificationAction.NewUserCreated, id, createdBy2, id);
             if (req is not null && req.DesiredRoleId is Guid desiredRid)
             {
                 desiredRoleByVerification[v.TargetId] = desiredRid;
@@ -290,11 +289,6 @@ public static class UsersEndpoints
             }
             if (req.OverridePermissions is not null) user.OverridePermissions = req.OverridePermissions;
 
-            if (req.Iban is not null)
-            {
-                // Store plain IBAN (normalized)
-                user.Iban = Hashing.NormalizeIban(req.Iban);
-            }
             if (req.DateOfBirth is not null)
             {
                 var dobStr = req.DateOfBirth.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
@@ -351,27 +345,12 @@ public static class UsersEndpoints
                     u.DisplayName,
                     Role = u.Role.Name,
                     EffectivePermissions = (long)(u.OverridePermissions ?? u.Role.Permissions),
-                    Iban = u.Iban,
                     DobHash = u.DobHash,
                     u.VerificationStatus,
                     u.CreatedAt
                 }).ToListAsync())
         ).RequirePermission(UserPermissions.ViewUsers);
 
-        // Verify IBAN/DOB
-        app.MapPost("/users/{id:guid}/verify", async (Guid id, string iban, DateOnly dob, UsersDb db) =>
-        {
-            var user = await db.Users.FindAsync(id);
-            if (user is null) return Results.NotFound();
-
-            var ibanNorm = Hashing.NormalizeIban(iban);
-            var (ibanHash, _) = Hashing.HashSecret(ibanNorm, user.HashSalt, pepper);
-            var dobStr = dob.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-            var (dobHash, _) = Hashing.HashSecret(dobStr, user.HashSalt, pepper);
-
-            var ok = user.Iban == ibanHash && user.DobHash == dobHash;
-            return ok ? Results.Ok() : Results.Unauthorized();
-        }).RequirePermission(UserPermissions.ViewUsers);
 
         // Verify IBAN/DOB
         // app.MapPost("/users/{id:guid}/verify", async (Guid id, string code, UsersDb db, IVerificationStore store) =>
@@ -402,6 +381,6 @@ public static class UsersEndpoints
             u.Id, u.Email, u.DisplayName,
             role.Id, role.Name, eff,
             u.VerificationStatus,
-            Iban: u.Iban, DobHash: u.DobHash, u.CreatedAt);
+            DobHash: u.DobHash, u.CreatedAt);
     }
 }

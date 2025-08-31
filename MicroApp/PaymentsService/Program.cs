@@ -60,8 +60,7 @@ builder.Services.AddHttpClient("users", c =>
 // Named HTTP client to publish domain events to WalletService
 builder.Services.AddHttpClient("wallet", c =>
 {
-    var baseAddress = builder.Configuration["Services:Wallet"] ?? "http://walletservice";
-    c.BaseAddress = new Uri(baseAddress);
+    c.BaseAddress = new Uri(builder.Configuration["Services:Wallet"]!);
 });
 
 // Exchange rates
@@ -85,13 +84,25 @@ CREATE TABLE IF NOT EXISTS ""Payments"" (
     ""FromAccount"" character varying(64) NOT NULL,
     ""Amount"" numeric(18,2) NOT NULL,
     ""Currency"" character varying(3) NOT NULL,
+    ""FromCurrency"" character varying(3) NOT NULL DEFAULT 'EUR',
+    ""BeneficiaryId"" uuid NULL,
+    ""BeneficiaryAccountId"" uuid NULL,
     ""Details"" text NULL,
     ""Status"" integer NOT NULL,
     ""CreatedAt"" timestamptz NOT NULL,
     ""UpdatedAt"" timestamptz NULL,
     CONSTRAINT ""PK_Payments"" PRIMARY KEY (""Id"")
 );
+-- Ensure required columns exist for existing databases
+ALTER TABLE ""Payments"" ADD COLUMN IF NOT EXISTS ""FromCurrency"" character varying(3) NOT NULL DEFAULT 'EUR';
+ALTER TABLE ""Payments"" ADD COLUMN IF NOT EXISTS ""BeneficiaryId"" uuid NULL;
+ALTER TABLE ""Payments"" ADD COLUMN IF NOT EXISTS ""BeneficiaryAccountId"" uuid NULL;
+
+-- Create indexes (after ensuring columns exist)
 CREATE INDEX IF NOT EXISTS ""IX_Payments_UserId"" ON ""Payments"" (""UserId"");
+CREATE INDEX IF NOT EXISTS ""IX_Payments_BeneficiaryId"" ON ""Payments"" (""BeneficiaryId"");
+CREATE INDEX IF NOT EXISTS ""IX_Payments_BeneficiaryAccountId"" ON ""Payments"" (""BeneficiaryAccountId"");
+
 ";
     await db.Database.ExecuteSqlRawAsync(createSql);
 }
@@ -118,25 +129,26 @@ app.MapPost("/payments/webhooks/provider", async (HttpContext http) =>
     if (payload.IntentId == Guid.Empty || payload.UserId == Guid.Empty || payload.Amount <= 0)
         return Results.BadRequest();
 
-    // Convert to EUR using exchange rate service, then to minor units
-    var rates = http.RequestServices.GetRequiredService<IExchangeRateService>();
-    var rate = await rates.GetRateAsync(payload.Currency, Currency.EUR);
-    var amountEur = Math.Round(payload.Amount * rate, 2, MidpointRounding.AwayFromZero);
-    long amountMinor = (long)Math.Round(amountEur * 100m, 0, MidpointRounding.AwayFromZero);
+    // Pass-through original currency; compute minor units from payload.Amount (2 decimals)
+    var amountRounded = Math.Round(payload.Amount, 2, MidpointRounding.AwayFromZero);
+    long amountMinor = (long)Math.Round(amountRounded * 100m, 0, MidpointRounding.AwayFromZero);
 
     var client = http.RequestServices.GetRequiredService<IHttpClientFactory>().CreateClient("wallet");
     var evt = new WalletEvent
     {
         IntentId = payload.IntentId,
         UserId = payload.UserId,
+        BeneficiaryId = payload.BeneficiaryId,
         AmountMinor = amountMinor,
-        Currency = Currency.EUR,
-        EventType = payload.Type?.ToLowerInvariant() switch
+        Currency = payload.Currency,
+        EventType = payload.Type?.ToLowerInvariant()
+                .Replace("_", "")
+                .Replace("-","")
+                .Replace(" ","")
+            switch
         {
             "refundsucceeded" => Common.Domain.Enums.PaymentEventType.RefundSucceeded,
-            "refund_succeeded" => Common.Domain.Enums.PaymentEventType.RefundSucceeded,
             "chargebackreceived" => Common.Domain.Enums.PaymentEventType.ChargebackReceived,
-            "chargeback_received" => Common.Domain.Enums.PaymentEventType.ChargebackReceived,
             _ => Common.Domain.Enums.PaymentEventType.PaymentCaptured
         },
         Description = payload.Description

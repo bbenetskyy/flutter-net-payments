@@ -1,6 +1,7 @@
 using Common.Security;
 
-namespace PaymentsService.Presentation.Security;
+namespace WalletService.Presentation.Security;
+
 
 public static class EndpointExtensions
 {

@@ -115,6 +115,19 @@ BEGIN
     END IF;
 END
 $$;
+
+CREATE TABLE IF NOT EXISTS ""Verifications"" (
+    ""Id"" uuid NOT NULL,
+    ""Action"" integer NOT NULL,
+    ""TargetId"" uuid NOT NULL,
+    ""Status"" integer NOT NULL,
+    ""Code"" character varying(10) NOT NULL,
+    ""CreatedBy"" uuid NOT NULL,
+    ""AssigneeUserId"" uuid NULL,
+    ""CreatedAt"" timestamptz NOT NULL,
+    ""DecidedAt"" timestamptz NULL,
+    CONSTRAINT ""PK_Verifications"" PRIMARY KEY (""Id"")
+);
 ";
     await db.Database.ExecuteSqlRawAsync(createSql);
 
@@ -230,7 +243,12 @@ app.MapPost("/internal/users", async (HttpRequest http, UsersDb db, IEmailSender
         Console.WriteLine($"Wallet sync failed: {ex.Message}");
     }
 
-    var v = await store.Create(VerificationAction.NewUserCreated, user.Id, Guid.Empty, user.Id);
+    // Determine creator from internal header X-Acting-UserId if present; fallback to system (Guid.Empty)
+    Guid createdBy = Guid.Empty;
+    if (http.Headers.TryGetValue("X-Acting-UserId", out var acting) && Guid.TryParse(acting.ToString(), out var parsed))
+        createdBy = parsed;
+
+    var v = await store.Create(VerificationAction.NewUserCreated, user.Id, createdBy, user.Id);
     var link = $"{builder.Configuration["Frontend:VerificationUrl"] ?? "http://localhost:5072/users/"}?id={user.Id}&code={v.Code}";
     await emailSender.SendAsync(user.Email, "Verify your account", $"Hello {user.DisplayName},\n\nPlease verify your account.\nVerification code: {v.Code}\nOr click: {link}\n\nYou can set your password during verification.");
     return Results.Created($"/users/{user.Id}", new { id = user.Id });

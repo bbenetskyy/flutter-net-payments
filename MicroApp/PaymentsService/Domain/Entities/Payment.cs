@@ -16,10 +16,13 @@ public class Payment
 
     public string BeneficiaryName { get; set; } = string.Empty;
     public string BeneficiaryAccount { get; set; } = string.Empty; // IBAN
+    public Guid? BeneficiaryId { get; set; }
+    public Guid? BeneficiaryAccountId { get; set; }
     public string FromAccount { get; set; } = string.Empty; // IBAN
 
     public decimal Amount { get; set; }
-    public Currency Currency { get; set; } = Currency.EUR; // limited enum
+    public Currency Currency { get; set; } = Currency.EUR; // destination/payment currency
+    public Currency FromCurrency { get; set; } = Currency.EUR; // source account currency
 
     public string? Details { get; set; }
 

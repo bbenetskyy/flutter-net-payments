@@ -1,3 +1,4 @@
+using Common.Security;
 using MicroApp.UsersService.Application.DTOs;
 using MicroApp.UsersService.Domain.Entities;
 using MicroApp.UsersService.Domain.Enums;

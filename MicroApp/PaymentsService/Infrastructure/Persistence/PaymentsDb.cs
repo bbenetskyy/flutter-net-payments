@@ -20,6 +20,10 @@ public class PaymentsDb(DbContextOptions<PaymentsDb> options) : DbContext(option
             e.Property(x => x.Currency).HasConversion<string>().HasMaxLength(3).IsRequired();
             e.Property(x => x.Status).HasConversion<int>();
             e.HasIndex(x => x.UserId);
+            e.Property(x => x.FromCurrency).HasConversion<string>().HasMaxLength(3).IsRequired();
+            e.HasIndex(x => x.BeneficiaryId);
+            e.HasIndex(x => x.BeneficiaryAccountId);
         });
+
     }
 }

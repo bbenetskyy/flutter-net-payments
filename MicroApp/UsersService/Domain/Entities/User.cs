@@ -1,3 +1,4 @@
+using Common.Security;
 using Common.Validation;
 using MicroApp.UsersService.Domain.Enums;
 
@@ -13,7 +14,6 @@ public sealed class User
     public string PasswordHash { get; set; } = default!;
 
     // Хешовані значення з сіллю/перцем
-    public string? Iban { get; set; }          // hex/base64 хеш IBAN
     public string? DobHash { get; set; }           // YYYY-MM-DD -> хеш
     public string? HashSalt { get; set; }          // унікальна сіль на користувача
 

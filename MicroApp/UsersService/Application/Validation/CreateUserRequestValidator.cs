@@ -14,9 +14,6 @@ public sealed class CreateUserRequestValidator : IValidator<CreateUserRequest>
         if (string.IsNullOrWhiteSpace(input.DisplayName))
             return ValidationResult.Fail("Display name is required");
 
-        if (!string.IsNullOrWhiteSpace(input.Iban) && !Common.Validation.Validation.IsValidIban(input.Iban))
-            return ValidationResult.Fail("Invalid IBAN");
-
         return ValidationResult.Ok();
     }
 }

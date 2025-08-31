@@ -26,8 +26,6 @@ public class UsersDb(DbContextOptions<UsersDb> options) : DbContext(options)
             e.HasIndex(x => x.Email).IsUnique();
             e.Property(x => x.DisplayName).IsRequired().HasMaxLength(200);
             e.Property(x => x.PasswordHash).IsRequired().HasMaxLength(200);
-            // Map Iban property to IbanHash column to avoid DB schema changes
-            e.Property(u => u.Iban).HasColumnName("IbanHash").HasMaxLength(256);
             e.Property(x => x.DobHash).HasMaxLength(256);
             e.Property(x => x.HashSalt).HasMaxLength(64);
             e.Property(x => x.OverridePermissions).HasConversion<long>();

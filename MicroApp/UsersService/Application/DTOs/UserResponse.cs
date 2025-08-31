@@ -1,3 +1,4 @@
+using Common.Security;
 using Common.Validation;
 using MicroApp.UsersService.Domain.Enums;
 
@@ -11,6 +12,5 @@ public record UserResponse(
     string RoleName,
     UserPermissions EffectivePermissions,
     VerificationStatus VerificationStatus,
-    string? Iban,
     string? DobHash,
     DateTime CreatedAt);

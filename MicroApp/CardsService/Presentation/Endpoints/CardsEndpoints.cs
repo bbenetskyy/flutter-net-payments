@@ -11,6 +11,7 @@ using System.Net.Http.Json;
 using CardsService.Application.Validation;
 using Common.Domain.Entities;
 using Common.Infrastucture.Persistence;
+using Common.Security;
 using Common.Validation;
 
 namespace CardsService.Presentation.Endpoints;
