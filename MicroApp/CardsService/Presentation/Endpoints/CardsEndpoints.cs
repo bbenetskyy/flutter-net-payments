@@ -9,6 +9,8 @@ using System.Security.Claims;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using CardsService.Application.Validation;
+using Common.Domain.Entities;
+using Common.Infrastucture.Persistence;
 using Common.Validation;
 
 namespace CardsService.Presentation.Endpoints;
@@ -101,6 +103,93 @@ public static class CardsEndpoints
 
             return Results.Ok(new { card = ToDto(card), verification });
         }).RequireAuthorization();
+        
+        
+        app.MapGet("/cards/verifications", async (
+                VerificationStatus? status,
+                Guid? targetId,
+                Guid? assigneeId,
+                Guid? createdBy,
+                string? q, // <-- free-text search
+                int? skip,
+                int? take,
+                VerificationsDb db,
+                CancellationToken ct) =>
+            {
+                var s = Math.Max(0, skip ?? 0);
+                var t = take is int x ? Math.Clamp(x, 1, 500) : 25; // sane defaults + cap
+
+                VerificationAction[] allowedActions = [
+                    VerificationAction.UserAssignedToCard , VerificationAction.CardPrinting , VerificationAction.CardTermination
+                ];
+                // base query
+                IQueryable<Verification> query = db.Verifications.AsNoTracking()
+                    .Where(v=> allowedActions.Contains(v.Action));
+
+                // filters
+                if (status.HasValue) query = query.Where(v => v.Status == status.Value);
+                if (targetId.HasValue) query = query.Where(v => v.TargetId == targetId.Value);
+                if (assigneeId.HasValue) query = query.Where(v => v.AssigneeUserId == assigneeId.Value);
+                if (createdBy.HasValue) query = query.Where(v => v.CreatedBy == createdBy.Value);
+
+                // search:
+                // - if q parses as Guid -> match Id/TargetId/Assignee/CreatedBy
+                // - else -> LIKE search on Code (and optionally Action/Status names)
+                if (!string.IsNullOrWhiteSpace(q))
+                {
+                    var term = q.Trim();
+
+                    if (Guid.TryParse(term, out var g))
+                    {
+                        query = query.Where(v =>
+                            v.Id == g ||
+                            v.TargetId == g ||
+                            v.AssigneeUserId == g ||
+                            v.CreatedBy == g);
+                    }
+                    else
+                    {
+                        var like = $"%{term}%";
+                        // Prefer provider-specific case-insensitive functions if available.
+                        // This version uses LIKE on Code and also allows searching by enum names.
+                        query = query.Where(v =>
+                            (EF.Functions.Like(v.Code, like)) ||
+                            EF.Functions.Like(v.Action.ToString(), like) ||
+                            EF.Functions.Like(v.Status.ToString(), like));
+                    }
+                }
+
+                // total BEFORE paging
+                var total = await query.CountAsync(ct);
+
+                // order newest first, then page
+                var items = await query
+                    .OrderByDescending(v => v.CreatedAt)
+                    .Skip(s)
+                    .Take(t)
+                    .Select(v => new
+                    {
+                        v.Id,
+                        v.Action,
+                        v.TargetId,
+                        v.Status,
+                        v.Code,
+                        v.CreatedBy,
+                        v.AssigneeUserId,
+                        v.CreatedAt,
+                        v.DecidedAt
+                    })
+                    .ToListAsync(ct);
+
+                return Results.Ok(new
+                {
+                    total,
+                    skip = s,
+                    take = t,
+                    items
+                });
+            })
+            .RequirePermission(UserPermissions.ManageCompanyUsers);
 
         app.MapPost("/cards/{id:guid}/request-termination", async (
             HttpContext http,
@@ -154,10 +243,10 @@ public static class CardsEndpoints
         }).RequirePermission(UserPermissions.ViewCards);
 
         // Decide
-        app.MapPost("/cards/verifications/{id:guid}/decision", async (HttpContext http, Guid id, VerificationDecisionRequest req,
+        app.MapPost("/cards/verifications/{id:guid}/decision", async (HttpContext http, Guid id,
+            VerificationDecisionRequest req,
             IVerificationStore store, CardsDb db) =>
         {
-            if (id != req.VerificationId) return Results.BadRequest("Mismatched verification id");
             var uid = GetUserId(http.User);
             if (uid is null) return Results.Unauthorized();
 
@@ -186,6 +275,25 @@ public static class CardsEndpoints
 
             var newStatus = req.Accept ? VerificationStatus.Completed : VerificationStatus.Rejected;
             v = await store.Decide(id, newStatus);
+            
+            if(newStatus == VerificationStatus.Completed)
+            {
+                if (v.Action == VerificationAction.UserAssignedToCard && card.Type == CardType.Personal)
+                {
+                    card.Name = me.DisplayName;
+                }
+                else if (v.Action == VerificationAction.CardPrinting)
+                {
+                    card.Printed = true;
+                }
+                else if (v.Action == VerificationAction.CardTermination)
+                {
+                    card.Terminated = true;
+                }
+                card.UpdatedAt = DateTime.UtcNow;
+                await db.SaveChangesAsync();
+            }
+            
             return Results.Ok(v);
         }).RequireAuthorization();
     }
@@ -200,7 +308,7 @@ public static class CardsEndpoints
 
     private static CardDto ToDto(Card c) => new(
         c.Id, c.Type, c.Name, c.SingleTransactionLimit, c.MonthlyLimit, c.AssignedUserId, c.Options,
-        c.Printed, c.CreatedAt, c.UpdatedAt);
+        c.Printed, c.Terminated ,c.CreatedAt, c.UpdatedAt);
 
     private static Guid? GetUserId(ClaimsPrincipal user)
     {
@@ -227,6 +335,7 @@ public static class CardsEndpoints
 internal sealed class MeResponse
 {
     public Guid Id { get; set; }
+    public string DisplayName { get; set; } = null!;
     public long EffectivePermissions { get; set; }
 }
 
@@ -245,9 +354,11 @@ public record UpdateCardRequest(
     decimal? MonthlyLimit,
     CardOptions? Options,
     bool? Printed,
-    bool AssignedUserIdSet,
     Guid? AssignedUserId
-);
+)
+{
+    public bool AssignedUserIdSet => AssignedUserId.HasValue;
+}
 
 public record CardDto(
     Guid Id,
@@ -258,6 +369,7 @@ public record CardDto(
     Guid? AssignedUserId,
     CardOptions Options,
     bool Printed,
+    bool Terminated,
     DateTime CreatedAt,
     DateTime? UpdatedAt
 );

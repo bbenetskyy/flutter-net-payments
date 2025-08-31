@@ -16,7 +16,8 @@ public class PaymentsDb(DbContextOptions<PaymentsDb> options) : DbContext(option
             e.Property(x => x.BeneficiaryAccount).IsRequired().HasMaxLength(64);
             e.Property(x => x.FromAccount).IsRequired().HasMaxLength(64);
             e.Property(x => x.Amount).HasPrecision(18, 2);
-            e.Property(x => x.Currency).IsRequired().HasMaxLength(3);
+            // store enum as 3-letter string (EUR/USD/GBP)
+            e.Property(x => x.Currency).HasConversion<string>().HasMaxLength(3).IsRequired();
             e.Property(x => x.Status).HasConversion<int>();
             e.HasIndex(x => x.UserId);
         });

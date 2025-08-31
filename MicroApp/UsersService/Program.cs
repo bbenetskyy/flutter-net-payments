@@ -15,10 +15,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Configuration.AddJsonFile("appsettings.Email.json", optional: true, reloadOnChange: true);
 
 // Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 builder.Services.AddDbContext<UsersDb>(o =>
     o.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -53,6 +51,7 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddSingleton<IEmailSender, ConsoleEmailSender>();
 builder.Services.AddHttpClient("users", c => c.BaseAddress = new Uri(builder.Configuration["Services:Users"]!));
+builder.Services.AddHttpClient("wallet", c => c.BaseAddress = new Uri(builder.Configuration["Services:Wallet"] ?? "http://walletservice"));
 
 var app = builder.Build();
 app.UseSwagger().UseSwaggerUI();
@@ -189,7 +188,7 @@ app.MapGet("/me", async (ClaimsPrincipal user, UsersDb db) =>
     });
 }).RequireAuthorization();
 
-app.MapPost("/internal/users", async (HttpRequest http, UsersDb db, IEmailSender emailSender, IVerificationStore store) =>
+app.MapPost("/internal/users", async (HttpRequest http, UsersDb db, IEmailSender emailSender, IVerificationStore store, IHttpClientFactory httpFactory) =>
 {
     if (http.Headers["X-Internal-ApiKey"] != builder.Configuration["InternalApiKey"])
         return Results.Unauthorized();
@@ -219,6 +218,18 @@ app.MapPost("/internal/users", async (HttpRequest http, UsersDb db, IEmailSender
     db.Users.Add(user);
     await db.SaveChangesAsync();
 
+    // Best-effort wallet sync (do not fail user creation if this fails)
+    try
+    {
+        var client = httpFactory.CreateClient("wallet");
+        client.DefaultRequestHeaders.Add("X-Internal-ApiKey", builder.Configuration["InternalApiKey"]);
+        using var _ = await client.PostAsync("/internal/wallets/sync-all-users", null);
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Wallet sync failed: {ex.Message}");
+    }
+
     var v = await store.Create(VerificationAction.NewUserCreated, user.Id, Guid.Empty, user.Id);
     var link = $"{builder.Configuration["Frontend:VerificationUrl"] ?? "http://localhost:5072/users/"}?id={user.Id}&code={v.Code}";
     await emailSender.SendAsync(user.Email, "Verify your account", $"Hello {user.DisplayName},\n\nPlease verify your account.\nVerification code: {v.Code}\nOr click: {link}\n\nYou can set your password during verification.");
@@ -226,6 +237,14 @@ app.MapPost("/internal/users", async (HttpRequest http, UsersDb db, IEmailSender
 }).ExcludeFromDescription();
 
 // Internal auth verify
+app.MapGet("/internal/users/ids", async (HttpRequest http, UsersDb db) =>
+{
+    if (http.Headers["X-Internal-ApiKey"] != builder.Configuration["InternalApiKey"])
+        return Results.Unauthorized();
+    var ids = await db.Users.AsNoTracking().Select(u => new { u.Id }).ToListAsync();
+    return Results.Ok(ids);
+}).ExcludeFromDescription();
+
 app.MapPost("/internal/auth/verify", async (HttpRequest http, UsersDb db) =>
 {
     if (http.Headers["X-Internal-ApiKey"] != builder.Configuration["InternalApiKey"])

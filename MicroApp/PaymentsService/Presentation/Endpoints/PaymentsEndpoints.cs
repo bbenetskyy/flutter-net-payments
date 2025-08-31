@@ -6,6 +6,7 @@ using PaymentsService.Domain.Entities;
 using PaymentsService.Infrastructure.Persistence;
 using PaymentsService.Presentation.Security;
 using Common.Validation;
+using Common.Domain.Enums;
 
 namespace PaymentsService.Presentation.Endpoints;
 
@@ -13,12 +14,10 @@ public static class PaymentsEndpoints
 {
     public static void MapPaymentsEndpoints(this IEndpointRouteBuilder app)
     {
-        var store = new VerificationStore();
-
         // Get current user's payments
 
         // Create verification for a payment action (PaymentCreated or PaymentReverted)
-        app.MapPost("/payments/verifications", async (HttpContext http, CreateVerificationRequest req, PaymentsDb db) =>
+        app.MapPost("/payments/verifications", async (HttpContext http, CreateVerificationRequest req, PaymentsDb db, IVerificationStore store) =>
         {
             if (req.Action is not (VerificationAction.PaymentCreated or VerificationAction.PaymentReverted))
                 return Results.BadRequest("Unsupported action for PaymentsService");
@@ -30,18 +29,17 @@ public static class PaymentsEndpoints
             if (uid is null) return Results.Unauthorized();
 
             Guid? assignee = req.Action == VerificationAction.PaymentCreated ? p.UserId : null;
-            var v = store.Create(req.Action, req.TargetId, uid.Value, assignee);
+            var v = await store.Create(req.Action, req.TargetId, uid.Value, assignee);
             return Results.Created($"/payments/verifications/{v.Id}", v);
         }).RequirePermission(UserPermissions.ViewPayments);
 
         // Decide on a verification (accept/reject) with code
-        app.MapPost("/payments/verifications/{id:guid}/decision", async (HttpContext http, Guid id, VerificationDecisionRequest req, PaymentsDb db, IConfiguration cfg) =>
+        app.MapPost("/payments/verifications/{id:guid}/decision", async (HttpContext http, Guid id, VerificationDecisionRequest req, PaymentsDb db, IConfiguration cfg, IVerificationStore store) =>
         {
-            if (id != req.VerificationId) return Results.BadRequest("Mismatched verification id");
             var uid = GetUserId(http.User);
             if (uid is null) return Results.Unauthorized();
 
-            var v = store.Get(id);
+            var v = await store.Get(id);
             if (v is null) return Results.NotFound();
             if (v.Status != VerificationStatus.Pending) return Results.BadRequest("Already decided");
             if (!string.Equals(v.Code, req.Code, StringComparison.Ordinal)) return Results.Unauthorized();
@@ -68,17 +66,17 @@ public static class PaymentsEndpoints
             if (!allowed) return Results.Forbid();
 
             var newStatus = req.Accept ? VerificationStatus.Completed : VerificationStatus.Rejected;
-            v = store.Decide(id, newStatus);
+            v = await store.Decide(id, newStatus);
 
-            if (v.Action == VerificationAction.PaymentCreated)
+            if (newStatus == VerificationStatus.Completed)
             {
-                p.Status = req.Accept ? PaymentStatus.Confirmed : PaymentStatus.Rejected;
-                p.UpdatedAt = DateTime.UtcNow;
-                await db.SaveChangesAsync();
-            }
-            else if (v.Action == VerificationAction.PaymentReverted)
-            {
-                if (req.Accept)
+                if (v.Action == VerificationAction.PaymentCreated)
+                {
+                    p.Status = PaymentStatus.Confirmed;
+                    p.UpdatedAt = DateTime.UtcNow;
+                    await db.SaveChangesAsync();
+                }
+                else if (v.Action == VerificationAction.PaymentReverted)
                 {
                     p.Status = PaymentStatus.Rejected; // minimal interpretation
                     p.UpdatedAt = DateTime.UtcNow;
@@ -122,7 +120,7 @@ public static class PaymentsEndpoints
                 BeneficiaryAccount = req.BeneficiaryAccount.Trim(),
                 FromAccount = req.FromAccount.Trim(),
                 Amount = req.Amount,
-                Currency = (req.Currency ?? "EUR").Trim().ToUpperInvariant(),
+                Currency = req.Currency ?? Currency.EUR,
                 Details = string.IsNullOrWhiteSpace(req.Details) ? null : req.Details.Trim(),
                 Status = PaymentStatus.Pending,
                 CreatedAt = DateTime.UtcNow
@@ -140,7 +138,6 @@ public static class PaymentsEndpoints
         if (string.IsNullOrWhiteSpace(req.BeneficiaryAccount)) return "Beneficiary account (IBAN) is required";
         if (string.IsNullOrWhiteSpace(req.FromAccount)) return "From account (IBAN) is required";
         if (req.Amount <= 0) return "Amount must be greater than 0";
-        if (!string.IsNullOrWhiteSpace(req.Currency) && req.Currency.Trim().Length != 3) return "Currency must be 3-letter ISO code";
         if (req.BeneficiaryName.Length > 200) return "Beneficiary name too long";
         if (req.BeneficiaryAccount.Length > 64) return "Beneficiary account too long";
         if (req.FromAccount.Length > 64) return "From account too long";
@@ -183,63 +180,6 @@ public static class PaymentsEndpoints
     }
 }
 
-internal sealed class VerificationStore
-{
-    private readonly PaymentsDb _db;
-    private readonly Random _rng = new();
-
-    public VerificationStore(PaymentsDb db)
-    {
-        _db = db;
-    }
-
-    public async Task<VerificationDto> Create(VerificationAction action, Guid targetId, Guid createdBy, Guid? assignee)
-    {
-        var id = Guid.NewGuid();
-        var code = GenerateCode();
-        var verification = new Verification
-        {
-            Id = id,
-            Action = action,
-            TargetId = targetId,
-            Status = VerificationStatus.Pending,
-            Code = code,
-            CreatedBy = createdBy,
-            AssigneeUserId = assignee,
-            CreatedAt = DateTime.UtcNow,
-            DecidedAt = null
-        };
-        _db.Add(verification);
-        await _db.SaveChangesAsync();
-
-        return new VerificationDto(id, action, targetId, VerificationStatus.Pending, code, createdBy, assignee, DateTime.UtcNow, null);
-    }
-
-    public async Task<VerificationDto?> Get(Guid id)
-    {
-        var v = await _db.Set<Verification>().FindAsync(id);
-        if (v is null) return null;
-        return new VerificationDto(v.Id, v.Action, v.TargetId, v.Status, v.Code, v.CreatedBy, v.AssigneeUserId, v.CreatedAt, v.DecidedAt);
-    }
-
-    public async Task<VerificationDto?> Decide(Guid id, VerificationStatus status)
-    {
-        var v = await _db.Set<Verification>().FindAsync(id);
-        if (v is null) return null;
-
-        v.Status = status;
-        v.DecidedAt = DateTime.UtcNow;
-        await _db.SaveChangesAsync();
-
-        return new VerificationDto(v.Id, v.Action, v.TargetId, v.Status, v.Code, v.CreatedBy, v.AssigneeUserId, v.CreatedAt, v.DecidedAt);
-    }
-
-    private string GenerateCode()
-    {
-        return _rng.Next(100000, 1000000).ToString(); // 6-digit
-    }
-}
-
 internal sealed class MeResponse
 {
     public Guid Id { get; set; }
@@ -251,7 +191,7 @@ public record CreatePaymentRequest(
     string BeneficiaryAccount,
     string FromAccount,
     decimal Amount,
-    string? Currency,
+    Currency? Currency,
     string? Details
 );
 
@@ -262,7 +202,7 @@ public record PaymentDto(
     string BeneficiaryAccount,
     string FromAccount,
     decimal Amount,
-    string Currency,
+    Currency Currency,
     string? Details,
     PaymentStatus Status,
     DateTime CreatedAt,

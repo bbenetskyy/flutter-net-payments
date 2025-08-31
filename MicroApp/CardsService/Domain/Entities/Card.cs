@@ -12,6 +12,7 @@ public class Card
     public Guid? AssignedUserId { get; set; }
     public CardOptions Options { get; set; }
     public bool Printed { get; set; }
+    public bool Terminated { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 }

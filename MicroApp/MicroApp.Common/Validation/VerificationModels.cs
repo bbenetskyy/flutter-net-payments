@@ -23,7 +23,6 @@ public record CreateVerificationRequest(
 );
 
 public record VerificationDecisionRequest(
-    Guid VerificationId,
     string Code,
     bool Accept
 );

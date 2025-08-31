@@ -28,7 +28,7 @@ public static class UsersEndpoints
         var desiredRoleByVerification = new Dictionary<Guid, Guid>();
 
         // Admin create user endpoint
-        app.MapPost("/users", async (AdminCreateUserRequest req, UsersDb db, IEmailSender emailSender, IVerificationStore store) =>
+        app.MapPost("/users", async (AdminCreateUserRequest req, UsersDb db, IEmailSender emailSender, IVerificationStore store, IHttpClientFactory httpFactory, IConfiguration cfg) =>
             {
                 // Validation
                 if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.DisplayName))
@@ -82,6 +82,18 @@ public static class UsersEndpoints
                 db.Users.Add(user);
                 await db.SaveChangesAsync();
 
+                // Best-effort wallet sync (do not fail user creation if this fails)
+                try
+                {
+                    var client = httpFactory.CreateClient("wallet");
+                    client.DefaultRequestHeaders.Add("X-Internal-ApiKey", cfg["InternalApiKey"]);
+                    using var _ = await client.PostAsync("/internal/wallets/sync-all-users", null);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Wallet sync failed for user {user.Id}: {ex.Message}");
+                }
+
                 // Create verification for the new user; only that user can accept
                 var v = await store.Create(VerificationAction.NewUserCreated, user.Id, Guid.Empty, user.Id);
                 if (req.DesiredRoleId is Guid desiredRid)
@@ -130,7 +142,6 @@ public static class UsersEndpoints
 
         app.MapGet("/users/verifications", async (
                 VerificationStatus? status,
-                VerificationAction? action,
                 Guid? targetId,
                 Guid? assigneeId,
                 Guid? createdBy,
@@ -144,11 +155,11 @@ public static class UsersEndpoints
                 var t = take is int x ? Math.Clamp(x, 1, 500) : 25; // sane defaults + cap
 
                 // base query
-                IQueryable<Verification> query = db.Verifications.AsNoTracking();
+                IQueryable<Verification> query = db.Verifications.AsNoTracking()
+                    .Where(v=> v.Action == VerificationAction.NewUserCreated);
 
                 // filters
                 if (status.HasValue) query = query.Where(v => v.Status == status.Value);
-                if (action.HasValue) query = query.Where(v => v.Action == action.Value);
                 if (targetId.HasValue) query = query.Where(v => v.TargetId == targetId.Value);
                 if (assigneeId.HasValue) query = query.Where(v => v.AssigneeUserId == assigneeId.Value);
                 if (createdBy.HasValue) query = query.Where(v => v.CreatedBy == createdBy.Value);

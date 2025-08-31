@@ -19,6 +19,7 @@ public class CardsDb(DbContextOptions<CardsDb> options) : DbContext(options)
             e.Property(x => x.SingleTransactionLimit).HasPrecision(18, 2);
             e.Property(x => x.MonthlyLimit).HasPrecision(18, 2);
             e.Property(x => x.Printed).HasDefaultValue(false);
+            e.Property(x => x.Terminated).HasDefaultValue(false);
             e.HasIndex(x => x.AssignedUserId);
         });
     }

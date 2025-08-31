@@ -1,15 +1,28 @@
 using System.Security.Claims;
+using System.Text.Json.Serialization;
+using Common.Infrastucture.Persistence;
 using Common.Security;
+using Common.Validation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using PaymentsService.Infrastructure.Persistence;
 using PaymentsService.Presentation.Endpoints;
+using PaymentsService.Application.Rates;
+using Common.Domain.Enums;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Services
 builder.Services.AddOpenApi();
+
+// JSON: serialize enums as strings (e.g., "EUR")
+builder.Services.ConfigureHttpJsonOptions(o =>
+{
+    o.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
 builder.Services.AddDbContext<PaymentsDb>(o =>
+    o.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddDbContext<VerificationsDb>(o =>
     o.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddEndpointsApiExplorer();
@@ -18,6 +31,8 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
     p.WithOrigins(builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? [])
         .AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
+
+builder.Services.AddScoped<IVerificationStore, VerificationStore>();
 
 builder.Services.AddAuthentication("Bearer").AddJwtBearer(o =>
 {
@@ -41,6 +56,16 @@ builder.Services.AddHttpClient("users", c =>
     var baseAddress = builder.Configuration["Services:Users"]!;
     c.BaseAddress = new Uri(baseAddress);
 });
+
+// Named HTTP client to publish domain events to WalletService
+builder.Services.AddHttpClient("wallet", c =>
+{
+    var baseAddress = builder.Configuration["Services:Wallet"] ?? "http://walletservice";
+    c.BaseAddress = new Uri(baseAddress);
+});
+
+// Exchange rates
+builder.Services.AddSingleton<IExchangeRateService, HardcodedExchangeRateService>();
 
 var app = builder.Build();
 app.UseSwagger().UseSwaggerUI();
@@ -82,6 +107,50 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapPaymentsEndpoints();
+
+// Provider webhook receiver -> emits domain events to WalletService
+app.MapPost("/payments/webhooks/provider", async (HttpContext http) =>
+{
+    var payload = await http.Request.ReadFromJsonAsync<ProviderWebhook>();
+    if (payload is null) return Results.BadRequest();
+
+    // Minimal validation
+    if (payload.IntentId == Guid.Empty || payload.UserId == Guid.Empty || payload.Amount <= 0)
+        return Results.BadRequest();
+
+    // Convert to EUR using exchange rate service, then to minor units
+    var rates = http.RequestServices.GetRequiredService<IExchangeRateService>();
+    var rate = await rates.GetRateAsync(payload.Currency, Currency.EUR);
+    var amountEur = Math.Round(payload.Amount * rate, 2, MidpointRounding.AwayFromZero);
+    long amountMinor = (long)Math.Round(amountEur * 100m, 0, MidpointRounding.AwayFromZero);
+
+    var client = http.RequestServices.GetRequiredService<IHttpClientFactory>().CreateClient("wallet");
+    var evt = new WalletEvent
+    {
+        IntentId = payload.IntentId,
+        UserId = payload.UserId,
+        AmountMinor = amountMinor,
+        Currency = Currency.EUR,
+        EventType = payload.Type?.ToLowerInvariant() switch
+        {
+            "refundsucceeded" => Common.Domain.Enums.PaymentEventType.RefundSucceeded,
+            "refund_succeeded" => Common.Domain.Enums.PaymentEventType.RefundSucceeded,
+            "chargebackreceived" => Common.Domain.Enums.PaymentEventType.ChargebackReceived,
+            "chargeback_received" => Common.Domain.Enums.PaymentEventType.ChargebackReceived,
+            _ => Common.Domain.Enums.PaymentEventType.PaymentCaptured
+        },
+        Description = payload.Description
+    };
+
+    using var res = await client.PostAsJsonAsync("/internal/events/payment", evt);
+    if (!res.IsSuccessStatusCode)
+    {
+        return Results.StatusCode((int)res.StatusCode);
+    }
+
+    return Results.Ok(new { status = "received" });
+});
+
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 app.Run();

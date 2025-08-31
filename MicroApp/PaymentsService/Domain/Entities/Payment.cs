@@ -1,3 +1,5 @@
+using Common.Domain.Enums;
+
 namespace PaymentsService.Domain.Entities;
 
 public enum PaymentStatus
@@ -17,7 +19,7 @@ public class Payment
     public string FromAccount { get; set; } = string.Empty; // IBAN
 
     public decimal Amount { get; set; }
-    public string Currency { get; set; } = "EUR"; // ISO 4217
+    public Currency Currency { get; set; } = Currency.EUR; // limited enum
 
     public string? Details { get; set; }
 

@@ -17,3 +17,9 @@
       context: .
       dockerfile: PaymentsService/Dockerfile
 
+  walletservice:
+    image: walletservice
+    build:
+      context: .
+      dockerfile: WalletService/Dockerfile
+

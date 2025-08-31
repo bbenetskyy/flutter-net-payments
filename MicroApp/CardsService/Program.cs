@@ -76,13 +76,24 @@ CREATE TABLE IF NOT EXISTS ""Cards"" (
     ""AssignedUserId"" uuid NULL,
     ""Options"" bigint NOT NULL,
     ""Printed"" boolean NOT NULL DEFAULT FALSE,
+    ""Terminated"" boolean NOT NULL DEFAULT FALSE,
     ""CreatedAt"" timestamptz NOT NULL,
     ""UpdatedAt"" timestamptz NULL,
     CONSTRAINT ""PK_Cards"" PRIMARY KEY (""Id"")
 );
 CREATE INDEX IF NOT EXISTS ""IX_Cards_AssignedUserId"" ON ""Cards"" (""AssignedUserId"");
 ";
+
+    var alterSql = @"
+-- Add column if missing, ensure default + NOT NULL
+ALTER TABLE IF EXISTS ""Cards""
+    ADD COLUMN IF NOT EXISTS ""Terminated"" boolean DEFAULT FALSE;
+UPDATE ""Cards"" SET ""Terminated"" = FALSE WHERE ""Terminated"" IS NULL;
+ALTER TABLE IF EXISTS ""Cards"" ALTER COLUMN ""Terminated"" SET NOT NULL;
+";
+
     await db.Database.ExecuteSqlRawAsync(createSql);
+    await db.Database.ExecuteSqlRawAsync(alterSql);
 }
 
 if (app.Environment.IsDevelopment())
