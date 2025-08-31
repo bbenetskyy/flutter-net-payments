@@ -23,3 +23,9 @@
       context: .
       dockerfile: WalletService/Dockerfile
 
+  gateway:
+    image: gateway
+    build:
+      context: .
+      dockerfile: Gateway/Dockerfile
+
