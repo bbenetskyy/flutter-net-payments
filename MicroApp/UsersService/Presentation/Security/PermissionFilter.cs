@@ -1,7 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Common.Security;
-using MicroApp.UsersService.Domain.Enums;
 using MicroApp.UsersService.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 

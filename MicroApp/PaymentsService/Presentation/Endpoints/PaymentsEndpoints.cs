@@ -142,7 +142,7 @@ public static class PaymentsEndpoints
 
             var me = await GetMeAsync(http);
             if (me is null) return Results.Unauthorized();
-            var perms = (PaymentsService.Presentation.Security.UserPermissions)me.EffectivePermissions;
+            var perms = (UserPermissions)me.EffectivePermissions;
 
             bool allowed = false;
             if (v.Action == VerificationAction.PaymentCreated)

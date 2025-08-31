@@ -7,7 +7,6 @@ using Common.Validation;
 using MicroApp.UsersService.Application;
 using MicroApp.UsersService.Application.DTOs;
 using MicroApp.UsersService.Domain.Entities;
-using MicroApp.UsersService.Domain.Enums;
 using MicroApp.UsersService.Infrastructure.Persistence;
 using MicroApp.UsersService.Presentation.Security;
 using Microsoft.EntityFrameworkCore;

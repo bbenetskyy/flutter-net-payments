@@ -1,6 +1,5 @@
 using Common.Security;
 using Common.Validation;
-using MicroApp.UsersService.Domain.Enums;
 
 namespace MicroApp.UsersService.Application.DTOs;
 

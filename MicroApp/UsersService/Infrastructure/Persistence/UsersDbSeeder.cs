@@ -1,6 +1,5 @@
 using Common.Security;
 using MicroApp.UsersService.Domain.Entities;
-using MicroApp.UsersService.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace MicroApp.UsersService.Infrastructure.Persistence;
