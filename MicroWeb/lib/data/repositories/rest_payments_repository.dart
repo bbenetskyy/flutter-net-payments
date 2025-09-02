@@ -1,5 +1,6 @@
 import '../models/item.dart';
 import '../models/create_payment_request.dart';
+import '../models/payment_dto.dart';
 import '../services/api_client.dart';
 import 'item_repository.dart';
 import 'payments_repository.dart';
@@ -59,32 +60,28 @@ class RestPaymentsRepository implements ItemRepository, PaymentsRepository {
   // ---- mapping helpers ----
 
   Item _mapPayment(Map<String, dynamic> j) {
-    final id = (j['id'] ?? '').toString();
-    final beneficiaryName = (j['beneficiaryName'] ?? '').toString();
-    final beneficiaryAccount = (j['beneficiaryAccount'] ?? '').toString();
-    final fromAccount = (j['fromAccount'] ?? '').toString();
+    final dto = PaymentDto.fromJson(j);
+    return _mapPaymentDto(dto);
+  }
 
-    final amount = (j['amount'] as num?)?.toDouble() ?? 0.0;
-    final currency = (j['currency'] ?? '').toString(); // enum: name or int -> toString() is fine
-    final status = (j['status'] ?? '').toString(); // enum -> toString()
-
-    final createdAtRaw = (j['createdAt'] ?? '').toString();
-    final createdAt = DateTime.tryParse(createdAtRaw);
-
+  Item _mapPaymentDto(PaymentDto d) {
+    final amount = d.amount ?? 0.0;
     // Infer direction: if it’s from my account -> debit (−), else credit (+)
-    final isCredit = true; // !_sameIban(fromAccount, primaryAccountIban);
+    final isCredit = true; // replace with real check when primary account is known
     final signedAmount = isCredit ? amount : -amount;
 
+    final createdAt = DateTime.tryParse(d.createdAt ?? '');
+
     return Item(
-      id: id,
-      title: beneficiaryName, // counterparty
-      subtitle: (j['details'] ?? '').toString(),
-      description: 'From: $fromAccount', // optional extra
+      id: d.id,
+      title: (d.beneficiaryName ?? '').toString(),
+      subtitle: (d.details ?? '').toString(),
+      description: 'From: ${d.fromAccount ?? ''}',
       amount: signedAmount,
-      currency: currency,
+      currency: d.currency,
       credit: isCredit,
-      status: status,
-      account: beneficiaryAccount, // yellow chip in UI
+      status: d.status,
+      account: d.beneficiaryAccount,
       date: createdAt,
     );
   }

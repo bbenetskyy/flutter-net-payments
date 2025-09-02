@@ -13,6 +13,7 @@ import '../models/verification_decision_request.dart';
 abstract class UsersRepository {
   // Basic users
   Future<dynamic> getMe();
+  Future<dynamic> listUsers({Map<String, dynamic>? query});
   Future<dynamic> getUserById(String id);
   Future<dynamic> updateUser(String id, UpdateUserRequest request);
 

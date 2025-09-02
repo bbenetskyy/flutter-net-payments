@@ -27,31 +27,24 @@ class AppScaffold extends StatelessWidget {
                   child: PopupMenuButton(
                     tooltip: 'Account',
                     itemBuilder: (_) => [
-                      PopupMenuItem(
-                        child: const Text('Profile'),
-                        onTap: () => context.push('/profile'),
-                      ),
-                      PopupMenuItem(
-                        child: const Text('Settings'),
-                        onTap: () => context.push('/settings'),
-                      ),
+                      PopupMenuItem(child: const Text('Profile'), onTap: () => context.push('/profile')),
+                      PopupMenuItem(child: const Text('Settings'), onTap: () => context.push('/settings')),
                       PopupMenuItem(
                         child: const Text('Sign out'),
                         onTap: () => context.read<AuthBloc>().add(SignOutRequested()),
                       ),
                     ],
-                    child: Row(children: [
-                      const CircleAvatar(child: Icon(Icons.person)),
-                      const SizedBox(width: 8),
-                      Text(state.user?.displayName ?? 'User'),
-                    ]),
+                    child: Row(
+                      children: [
+                        const CircleAvatar(child: Icon(Icons.person)),
+                        const SizedBox(width: 8),
+                        Text(state.user?.displayName ?? 'User'),
+                      ],
+                    ),
                   ),
                 );
               }
-              return TextButton(
-                onPressed: () => context.go('/signin'),
-                child: const Text('Sign in'),
-              );
+              return TextButton(onPressed: () => context.go('/signin'), child: const Text('Sign in'));
             },
           ),
         ],
@@ -66,10 +59,21 @@ class AppScaffold extends StatelessWidget {
               title: const Text('Dashboard'),
               onTap: () => context.go('/dashboard'),
             ),
+            ListTile(leading: const Icon(Icons.list), title: const Text('Items'), onTap: () => context.go('/items')),
             ListTile(
-              leading: const Icon(Icons.list),
-              title: const Text('Items'),
-              onTap: () => context.go('/items'),
+              leading: const Icon(Icons.account_balance_wallet_outlined),
+              title: const Text('Payments'),
+              onTap: () => context.go('/payments'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.credit_card),
+              title: const Text('Cards'),
+              onTap: () => context.go('/cards'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.people_alt_outlined),
+              title: const Text('Users'),
+              onTap: () => context.go('/users'),
             ),
             ListTile(
               leading: const Icon(Icons.settings),
@@ -93,6 +97,15 @@ class AppScaffold extends StatelessWidget {
                     context.go('/items');
                     break;
                   case 2:
+                    context.go('/payments');
+                    break;
+                  case 3:
+                    context.go('/cards');
+                    break;
+                  case 4:
+                    context.go('/users');
+                    break;
+                  case 5:
                     context.go('/settings');
                     break;
                 }
@@ -100,6 +113,9 @@ class AppScaffold extends StatelessWidget {
               destinations: const [
                 NavigationRailDestination(icon: Icon(Icons.dashboard_outlined), label: Text('Dashboard')),
                 NavigationRailDestination(icon: Icon(Icons.list_alt), label: Text('Items')),
+                NavigationRailDestination(icon: Icon(Icons.account_balance_wallet_outlined), label: Text('Payments')),
+                NavigationRailDestination(icon: Icon(Icons.credit_card), label: Text('Cards')),
+                NavigationRailDestination(icon: Icon(Icons.people_alt_outlined), label: Text('Users')),
                 NavigationRailDestination(icon: Icon(Icons.settings_outlined), label: Text('Settings')),
               ],
             ),

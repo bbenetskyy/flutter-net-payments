@@ -22,6 +22,11 @@ class RestUsersRepository implements UsersRepository {
   }
 
   @override
+  Future<dynamic> listUsers({Map<String, dynamic>? query}) async {
+    return await _api.get('/users', query: query);
+  }
+
+  @override
   Future<dynamic> getUserById(String id) async {
     return await _api.get('/users/$id');
   }

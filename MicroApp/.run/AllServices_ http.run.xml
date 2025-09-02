@@ -1,0 +1,11 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="AllServices: http" type="CompoundRunConfigurationType">
+    <toRun name="AuthService: http" type="LaunchSettings" />
+    <toRun name="CardsService: http" type="LaunchSettings" />
+    <toRun name="Gateway: http" type="LaunchSettings" />
+    <toRun name="PaymentsService: http" type="LaunchSettings" />
+    <toRun name="UsersService: http" type="LaunchSettings" />
+    <toRun name="WalletService: http" type="LaunchSettings" />
+    <method v="2" />
+  </configuration>
+</component>
