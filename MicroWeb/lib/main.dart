@@ -30,7 +30,7 @@ class AppBootstrap extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final storage = TokenStorage();
-    final api = ApiClient(baseUrl: 'http://localhost:5264', readAccessToken: storage.readAccess);
+    final api = ApiClient(baseUrl: 'http://localhost:5247', readAccessToken: storage.readAccess);
     final authRepo = RestAuthRepository(api, storage);
     final itemRepo = RestPaymentsRepository(api);
     final usersRepo = RestUsersRepository(api);

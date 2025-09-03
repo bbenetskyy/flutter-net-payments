@@ -55,12 +55,6 @@ class AppScaffold extends StatelessWidget {
           children: [
             const DrawerHeader(child: Text('Navigation')),
             ListTile(
-              leading: const Icon(Icons.dashboard),
-              title: const Text('Dashboard'),
-              onTap: () => context.go('/dashboard'),
-            ),
-            ListTile(leading: const Icon(Icons.list), title: const Text('Items'), onTap: () => context.go('/items')),
-            ListTile(
               leading: const Icon(Icons.account_balance_wallet_outlined),
               title: const Text('Payments'),
               onTap: () => context.go('/payments'),
@@ -91,28 +85,20 @@ class AppScaffold extends StatelessWidget {
               onDestinationSelected: (i) {
                 switch (i) {
                   case 0:
-                    context.go('/dashboard');
-                    break;
-                  case 1:
-                    context.go('/items');
-                    break;
-                  case 2:
                     context.go('/payments');
                     break;
-                  case 3:
+                  case 1:
                     context.go('/cards');
                     break;
-                  case 4:
+                  case 2:
                     context.go('/users');
                     break;
-                  case 5:
+                  case 3:
                     context.go('/settings');
                     break;
                 }
               },
               destinations: const [
-                NavigationRailDestination(icon: Icon(Icons.dashboard_outlined), label: Text('Dashboard')),
-                NavigationRailDestination(icon: Icon(Icons.list_alt), label: Text('Items')),
                 NavigationRailDestination(icon: Icon(Icons.account_balance_wallet_outlined), label: Text('Payments')),
                 NavigationRailDestination(icon: Icon(Icons.credit_card), label: Text('Cards')),
                 NavigationRailDestination(icon: Icon(Icons.people_alt_outlined), label: Text('Users')),

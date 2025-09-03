@@ -15,7 +15,17 @@ class RestAuthRepository implements AuthRepository {
 
   @override
   Future<User?> currentUser() async {
-    // If you have /auth/me, you could call it here when _current == null
+    if (_current == null) {
+      return null;
+    }
+    final userJson = await _api.get('/me') as Map<String, dynamic>?;
+    _current = User(
+      id: _current!.id,
+      email: (userJson?['email']).toString(),
+      displayName: (userJson?['displayName']).toString(),
+      roleId: (userJson?['role']?['id']).toString(),
+      roleName: (userJson?['role']?['name']).toString(),
+    );
     return _current;
   }
 
@@ -25,7 +35,7 @@ class RestAuthRepository implements AuthRepository {
     final data = await _api.post('/auth/login', body: body) as Map<String, dynamic>;
 
     // Accept several token field names based on backend
-    final access = (data['token'] ?? data['accessToken'] ?? data['jwt'] ?? data['access'])?.toString();
+    final access = (data['token'])?.toString();
     if (access == null || access.isEmpty) {
       throw DioException.badResponse(
         statusCode: 500,
@@ -34,15 +44,16 @@ class RestAuthRepository implements AuthRepository {
       );
     }
     _storage.saveTokens(access);
-
-    final userId = (data['userId'] ?? data['id'] ?? (data['user']?['id']))?.toString() ?? 'me';
+    final userId = (data['userId']).toString();
     _storage.saveUserId(userId);
 
-    final userJson = data['user'] as Map<String, dynamic>?;
+    final userJson = await _api.get('/me') as Map<String, dynamic>?;
     _current = User(
       id: userId,
-      email: (userJson?['email'] ?? email).toString(),
-      displayName: (userJson?['displayName'] ?? userJson?['name'] ?? email.split('@').first).toString(),
+      email: (userJson?['email']).toString(),
+      displayName: (userJson?['displayName']).toString(),
+      roleId: (userJson?['role']?['id']).toString(),
+      roleName: (userJson?['role']?['name']).toString(),
     );
     return _current!;
   }
@@ -54,24 +65,11 @@ class RestAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<User> signUp({required String email, required String password, String? displayName}) async {
+  Future<bool> signUp({required String email, required String password, String? displayName}) async {
     final body = RegisterDto(email: email, password: password, displayName: displayName).toJson();
     final data = await _api.post('/auth/register', body: body) as Map<String, dynamic>;
 
-    final access = (data['token'] ?? data['accessToken'] ?? data['jwt'] ?? data['access'])?.toString();
-    if (access != null && access.isNotEmpty) {
-      _storage.saveTokens(access);
-    }
-
-    final userId = (data['userId'] ?? data['id'] ?? (data['user']?['id']))?.toString() ?? 'me';
-    _storage.saveUserId(userId);
-
-    final userJson = data['user'] as Map<String, dynamic>?;
-    _current = User(
-      id: userId,
-      email: (userJson?['email'] ?? email).toString(),
-      displayName: (userJson?['displayName'] ?? userJson?['name'] ?? displayName ?? email.split('@').first).toString(),
-    );
-    return _current!;
+    final userId = (data['userId']).toString();
+    return userId.isNotEmpty;
   }
 }

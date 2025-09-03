@@ -40,8 +40,13 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   Future<void> _onSignUpRequested(SignUpRequested event, Emitter<AuthState> emit) async {
     emit(state.copyWith(loading: true));
     try {
-      final user = await _repo.signUp(email: event.email, password: event.password, displayName: event.displayName);
-      emit(AuthState.authenticated(user));
+      final succeeded = await _repo.signUp(
+        email: event.email,
+        password: event.password,
+        displayName: event.displayName,
+      );
+      // On successful registration we keep the user unauthenticated and provide a flag to navigate.
+      emit(state.copyWith(status: AuthStatus.unauthenticated, loading: false, error: null, registered: true));
     } catch (e) {
       emit(state.copyWith(loading: false, error: e.toString()));
       emit(const AuthState.unauthenticated());

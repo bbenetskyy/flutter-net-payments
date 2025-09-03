@@ -78,28 +78,31 @@ class _PaymentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Row(
-          children: [
-            const Icon(Icons.account_balance_wallet, size: 36),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(item.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  Text(item.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
-                ],
+      child: InkWell(
+        onTap: () => context.push('/payments/${item.id}'),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Row(
+            children: [
+              const Icon(Icons.account_balance_wallet, size: 36),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(item.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Text(item.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ],
+                ),
               ),
-            ),
-            if (item.amount != null)
-              Text(
-                '${item.credit == true ? '+' : ''}${item.amount!.toStringAsFixed(2)} ${item.currency ?? ''}',
-                style: TextStyle(color: item.credit == true ? Colors.green : Colors.red),
-              ),
-          ],
+              if (item.amount != null)
+                Text(
+                  '${item.credit == true ? '+' : ''}${item.amount!.toStringAsFixed(2)} ${item.currency ?? ''}',
+                  style: TextStyle(color: item.credit == true ? Colors.green : Colors.red),
+                ),
+            ],
+          ),
         ),
       ),
     );
