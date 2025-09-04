@@ -5,7 +5,7 @@
 // ignore_for_file: unused_element
 import 'package:json_annotation/json_annotation.dart';
 
-import 'currency.dart';
+import '../currency.dart';
 
 part 'create_account_request.g.dart';
 

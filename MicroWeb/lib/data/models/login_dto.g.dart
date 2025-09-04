@@ -7,17 +7,15 @@ part of 'login_dto.dart';
 // **************************************************************************
 
 LoginDto _$LoginDtoFromJson(Map<String, dynamic> json) =>
-    LoginDto(email: json['email'] as String?, password: json['password'] as String?);
+    $checkedCreate('LoginDto', json, ($checkedConvert) {
+      final val = LoginDto(
+        email: $checkedConvert('email', (v) => v as String?),
+        password: $checkedConvert('password', (v) => v as String?),
+      );
+      return val;
+    });
 
-Map<String, dynamic> _$LoginDtoToJson(LoginDto instance) {
-  final val = <String, dynamic>{};
-  void writeNotNull(String key, dynamic value) {
-    if (value != null) {
-      val[key] = value;
-    }
-  }
-
-  writeNotNull('email', instance.email);
-  writeNotNull('password', instance.password);
-  return val;
-}
+Map<String, dynamic> _$LoginDtoToJson(LoginDto instance) => <String, dynamic>{
+  'email': ?instance.email,
+  'password': ?instance.password,
+};

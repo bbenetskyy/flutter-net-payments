@@ -22,7 +22,7 @@ UpdateCardRequest _$UpdateCardRequestFromJson(Map<String, dynamic> json) =>
           'monthlyLimit',
           (v) => (v as num?)?.toDouble(),
         ),
-        options: $checkedConvert('options', (v) => _optionsFromJson(v)),
+        options: $checkedConvert('options', (v) => optionsFromJson(v)),
         printed: $checkedConvert('printed', (v) => v as bool?),
         assignedUserId: $checkedConvert('assignedUserId', (v) => v as String?),
         assignedUserIdSet: $checkedConvert(
@@ -39,7 +39,7 @@ Map<String, dynamic> _$UpdateCardRequestToJson(UpdateCardRequest instance) =>
       'name': ?instance.name,
       'singleTransactionLimit': ?instance.singleTransactionLimit,
       'monthlyLimit': ?instance.monthlyLimit,
-      'options': ?_optionsToJson(instance.options),
+      'options': ?optionsToJson(instance.options),
       'printed': ?instance.printed,
       'assignedUserId': ?instance.assignedUserId,
       'assignedUserIdSet': ?instance.assignedUserIdSet,

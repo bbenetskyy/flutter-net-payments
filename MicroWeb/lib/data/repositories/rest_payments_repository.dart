@@ -1,5 +1,5 @@
 import '../models/item.dart';
-import '../models/create_payment_request.dart';
+import '../models/requests/create_payment_request.dart';
 import '../models/payment_dto.dart';
 import '../services/api_client.dart';
 import 'item_repository.dart';
@@ -12,7 +12,7 @@ class RestPaymentsRepository implements ItemRepository, PaymentsRepository {
   // PaymentsRepository (raw access)
   @override
   Future<dynamic> listPayments({Map<String, dynamic>? query}) async {
-    return await _api.get('/payments', query: query);
+    return await _api.get('/payments/my', query: query);
   }
 
   @override
@@ -38,6 +38,12 @@ class RestPaymentsRepository implements ItemRepository, PaymentsRepository {
     // If your backend wraps with { items: [...] }
     if (data is Map && data['items'] is List) {
       final list = (data['items'] as List).map((e) => _mapPayment(Map<String, dynamic>.from(e))).toList();
+      return list;
+    }
+
+    // Or if your backend wraps with { data: [...] }
+    if (data is Map && data['data'] is List) {
+      final list = (data['data'] as List).map((e) => _mapPayment(Map<String, dynamic>.from(e))).toList();
       return list;
     }
 

@@ -20,6 +20,9 @@ import '../presentation/pages/users_list_page.dart';
 import '../logic/auth/auth_bloc.dart';
 import '../logic/items/items_bloc.dart';
 import '../data/repositories/in_memory_item_repository.dart';
+import '../logic/payments/payments_cubit.dart';
+import '../data/repositories/payments_repository.dart';
+import '../data/repositories/users_repository.dart';
 
 class AppRouter {
   AppRouter({required AuthBloc authBloc})
@@ -30,6 +33,7 @@ class AppRouter {
         redirect: (context, state) {
           final authState = authBloc.state;
           final isLoggingIn =
+              state.matchedLocation == '/' ||
               state.matchedLocation == '/signin' ||
               state.matchedLocation == '/signup' ||
               state.matchedLocation == '/registration-success';
@@ -52,8 +56,8 @@ class AppRouter {
             routes: [
               GoRoute(
                 path: '/payments',
-                builder: (context, __) => BlocProvider<ItemsBloc>(
-                  create: (ctx) => ItemsBloc(InMemoryItemRepository(seedKey: 'payments'))..add(ItemsRequested()),
+                builder: (context, __) => BlocProvider<PaymentsCubit>(
+                  create: (ctx) => PaymentsCubit(ctx.read<PaymentsRepository>(), ctx.read<UsersRepository>())..load(),
                   child: const PaymentsListPage(),
                 ),
               ),
@@ -73,10 +77,14 @@ class AppRouter {
               ),
               GoRoute(
                 path: '/payments/:id',
-                builder: (ctx, st) => BlocProvider<ItemsBloc>(
-                  create: (ctx) => ItemsBloc(InMemoryItemRepository(seedKey: 'payments'))..add(ItemsRequested()),
-                  child: PaymentDetailPage(id: st.pathParameters['id']!),
-                ),
+                builder: (ctx, st) {
+                  final id = st.pathParameters['id']!;
+                  return BlocProvider<PaymentsCubit>(
+                    create: (ctx) =>
+                        PaymentsCubit(ctx.read<PaymentsRepository>(), ctx.read<UsersRepository>())..loadOne(id),
+                    child: PaymentDetailPage(id: id),
+                  );
+                },
               ),
               GoRoute(
                 path: '/cards/:id',

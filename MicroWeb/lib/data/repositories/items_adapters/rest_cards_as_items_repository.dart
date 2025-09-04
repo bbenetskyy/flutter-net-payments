@@ -38,6 +38,9 @@ class RestCardsAsItemsRepository implements ItemRepository {
     if (data is Map && data['items'] is List) {
       return (data['items'] as List).cast<Map<String, dynamic>>();
     }
+    if (data is Map && data['data'] is List) {
+      return (data['data'] as List).cast<Map<String, dynamic>>();
+    }
     return const [];
   }
 

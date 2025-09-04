@@ -1,4 +1,4 @@
-import '../models/create_account_request.dart';
+import '../models/requests/create_account_request.dart';
 
 /// Abstraction for Wallet/Accounts service REST calls routed via API Gateway base URL.
 abstract class WalletRepository {

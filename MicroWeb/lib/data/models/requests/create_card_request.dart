@@ -5,7 +5,7 @@
 // ignore_for_file: unused_element
 import 'package:json_annotation/json_annotation.dart';
 
-import 'card_type.dart';
+import '../card_type.dart';
 
 part 'create_card_request.g.dart';
 

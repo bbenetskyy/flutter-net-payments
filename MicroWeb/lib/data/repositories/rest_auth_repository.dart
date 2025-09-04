@@ -15,18 +15,39 @@ class RestAuthRepository implements AuthRepository {
 
   @override
   Future<User?> currentUser() async {
-    if (_current == null) {
+    // If we already have an in-memory user, refresh its details from backend.
+    if (_current != null) {
+      final userJson = await _api.get('/me') as Map<String, dynamic>?;
+      _current = User(
+        id: _current!.id,
+        email: (userJson?['email']).toString(),
+        displayName: (userJson?['displayName']).toString(),
+        roleId: (userJson?['role']?['id']).toString(),
+        roleName: (userJson?['role']?['name']).toString(),
+      );
+      return _current;
+    }
+
+    // Rehydrate from persisted tokens after a page reload (web) or app restart.
+    final access = _storage.readAccess();
+    final userId = _storage.readUserId();
+    if (access == null || access.isEmpty || userId == null || userId.isEmpty) {
       return null;
     }
-    final userJson = await _api.get('/me') as Map<String, dynamic>?;
-    _current = User(
-      id: _current!.id,
-      email: (userJson?['email']).toString(),
-      displayName: (userJson?['displayName']).toString(),
-      roleId: (userJson?['role']?['id']).toString(),
-      roleName: (userJson?['role']?['name']).toString(),
-    );
-    return _current;
+    try {
+      final userJson = await _api.get('/me') as Map<String, dynamic>?;
+      _current = User(
+        id: userId,
+        email: (userJson?['email']).toString(),
+        displayName: (userJson?['displayName']).toString(),
+        roleId: (userJson?['role']?['id']).toString(),
+        roleName: (userJson?['role']?['name']).toString(),
+      );
+      return _current;
+    } catch (_) {
+      // If token is invalid/expired, behave as unauthenticated; caller will redirect to sign-in.
+      return null;
+    }
   }
 
   @override

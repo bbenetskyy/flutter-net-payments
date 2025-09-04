@@ -1,9 +1,9 @@
-import '../models/admin_assign_role_for_verification_request.dart';
-import '../models/admin_create_user_request.dart';
-import '../models/create_role_request.dart';
-import '../models/create_verification_request.dart';
-import '../models/update_role_request.dart';
-import '../models/update_user_request.dart';
+import '../models/requests/admin_assign_role_for_verification_request.dart';
+import '../models/requests/admin_create_user_request.dart';
+import '../models/requests/create_role_request.dart';
+import '../models/requests/create_verification_request.dart';
+import '../models/requests/update_role_request.dart';
+import '../models/requests/update_user_request.dart';
 import '../models/users_verification_decision_request.dart';
 import '../models/verification_decision_request.dart';
 

@@ -1,4 +1,4 @@
-import '../models/create_account_request.dart';
+import '../models/requests/create_account_request.dart';
 import '../services/api_client.dart';
 import 'wallet_repository.dart';
 

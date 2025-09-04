@@ -48,3 +48,19 @@ class CardOptionsConverter {
     return set.toBitMask();
   }
 }
+
+// Custom converters for CardOptions flags
+Set<CardOptions>? optionsFromJson(Object? json) {
+  if (json == null) return null;
+  final intMask = switch (json) {
+    int v => v,
+    String s => int.tryParse(s) ?? 0,
+    _ => 0,
+  };
+  return CardOptionsConverter.fromBitMask(intMask);
+}
+
+Object? optionsToJson(Set<CardOptions>? value) {
+  if (value == null) return null;
+  return CardOptionsConverter.toBitMask(value);
+}

@@ -1,6 +1,6 @@
-import '../models/assign_card_request.dart';
-import '../models/create_card_request.dart';
-import '../models/update_card_request.dart';
+import '../models/requests/assign_card_request.dart';
+import '../models/requests/create_card_request.dart';
+import '../models/requests/update_card_request.dart';
 import '../models/top_up_request.dart';
 
 /// Abstraction for Cards service REST calls routed via API Gateway base URL.

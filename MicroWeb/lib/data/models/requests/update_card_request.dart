@@ -5,45 +5,22 @@
 // ignore_for_file: unused_element
 import 'package:json_annotation/json_annotation.dart';
 
-import 'card_options.dart';
-import 'card_type.dart';
+import '../card_options.dart';
+import '../card_type.dart';
 
 part 'update_card_request.g.dart';
-
-// Custom converters for CardOptions flags
-Set<CardOptions>? _optionsFromJson(Object? json) {
-  if (json == null) return null;
-  final intMask = switch (json) {
-    int v => v,
-    String s => int.tryParse(s) ?? 0,
-    _ => 0,
-  };
-  return CardOptionsConverter.fromBitMask(intMask);
-}
-
-Object? _optionsToJson(Set<CardOptions>? value) {
-  if (value == null) return null;
-  return CardOptionsConverter.toBitMask(value);
-}
 
 @JsonSerializable(checked: true, createToJson: true, disallowUnrecognizedKeys: false, explicitToJson: true)
 class UpdateCardRequest {
   /// Returns a new [UpdateCardRequest] instance.
   UpdateCardRequest({
     this.type,
-
     this.name,
-
     this.singleTransactionLimit,
-
     this.monthlyLimit,
-
     this.options,
-
     this.printed,
-
     this.assignedUserId,
-
     this.assignedUserIdSet,
   });
 
@@ -60,7 +37,7 @@ class UpdateCardRequest {
   final double? monthlyLimit;
 
   // Flags: backend expects combined integer bitmask of CardOptions
-  @JsonKey(name: r'options', required: false, includeIfNull: false, fromJson: _optionsFromJson, toJson: _optionsToJson)
+  @JsonKey(name: r'options', required: false, includeIfNull: false, fromJson: optionsFromJson, toJson: optionsToJson)
   final Set<CardOptions>? options;
 
   @JsonKey(name: r'printed', required: false, includeIfNull: false)

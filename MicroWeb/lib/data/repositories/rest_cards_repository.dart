@@ -1,7 +1,7 @@
-import '../models/assign_card_request.dart';
-import '../models/create_card_request.dart';
+import '../models/requests/assign_card_request.dart';
+import '../models/requests/create_card_request.dart';
 import '../models/top_up_request.dart';
-import '../models/update_card_request.dart';
+import '../models/requests/update_card_request.dart';
 import '../services/api_client.dart';
 import 'cards_repository.dart';
 
