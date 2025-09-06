@@ -13,6 +13,8 @@ import 'data/repositories/cards_repository.dart';
 import 'data/repositories/rest_cards_repository.dart';
 import 'data/repositories/wallet_repository.dart';
 import 'data/repositories/rest_wallet_repository.dart';
+import 'data/repositories/accounts_repository.dart';
+import 'data/repositories/rest_accounts_repository.dart';
 import 'data/services/api_client.dart';
 import 'data/services/local_storage.dart';
 import 'logic/auth/auth_bloc.dart';
@@ -36,6 +38,7 @@ class AppBootstrap extends StatelessWidget {
     final usersRepo = RestUsersRepository(api);
     final cardsRepo = RestCardsRepository(api);
     final walletRepo = RestWalletRepository(api);
+    final accountsRepo = RestAccountsRepository(api);
     return MultiRepositoryProvider(
       providers: [
         RepositoryProvider<AuthRepository>.value(value: authRepo),
@@ -44,6 +47,7 @@ class AppBootstrap extends StatelessWidget {
         RepositoryProvider<UsersRepository>.value(value: usersRepo),
         RepositoryProvider<CardsRepository>.value(value: cardsRepo),
         RepositoryProvider<WalletRepository>.value(value: walletRepo),
+        RepositoryProvider<AccountsRepository>.value(value: accountsRepo),
       ],
       child: MultiBlocProvider(
         providers: [

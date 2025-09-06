@@ -34,7 +34,10 @@ class PaymentDto {
       beneficiaryName: (json['beneficiaryName'] ?? json['counterpartyName'])?.toString(),
       beneficiaryAccount: (json['beneficiaryAccount'] ?? json['toAccount'] ?? json['iban'])?.toString(),
       fromAccount: (json['fromAccount'] ?? json['sourceAccount'])?.toString(),
-      amount: _toDouble(json['amount'] ?? json['amountMajor'] ?? json['value']),
+      amount: (() {
+        final raw = _toDouble(json['amount'] ?? json['amountMajor'] ?? json['value']);
+        return raw == null ? null : raw / 100.0;
+      })(),
       currency: (json['currency'] ?? json['ccy'])?.toString(),
       status: (json['status'] ?? json['state'])?.toString(),
       details: (json['details'] ?? json['description'])?.toString(),

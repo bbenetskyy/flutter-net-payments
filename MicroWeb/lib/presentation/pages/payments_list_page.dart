@@ -124,11 +124,14 @@ class _PaymentCard extends StatelessWidget {
                     '${item.amount.toStringAsFixed(2)} ${item.currency}',
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  Chip(
-                    labelPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-                    label: Text(item.status),
-                    backgroundColor: _statusColor(item.status).withOpacity(0.1),
-                    labelStyle: TextStyle(color: _statusColor(item.status)),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Chip(
+                      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+                      label: Text(item.status),
+                      backgroundColor: _statusColor(item.status).withOpacity(0.1),
+                      labelStyle: TextStyle(color: _statusColor(item.status)),
+                    ),
                   ),
                 ],
               ),
@@ -156,6 +159,28 @@ class _NewPaymentDialogState extends State<_NewPaymentDialog> {
   final _details = TextEditingController();
   Currency? _currency = Currency.EUR;
 
+  String? _fromIban; // selected from accounts/my
+  String? _selectedUserId; // selected from /users
+
+  @override
+  void initState() {
+    super.initState();
+    // Ensure dropdown data is available
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final cubit = context.read<PaymentsCubit>();
+      if (cubit.state.myAccounts.isEmpty || cubit.state.users.isEmpty) {
+        await cubit.prefetchFormLookups();
+        if (mounted && _fromIban == null && cubit.state.myAccounts.isNotEmpty) {
+          setState(() => _fromIban = cubit.state.myAccounts.first.iban);
+        }
+      } else {
+        if (_fromIban == null && cubit.state.myAccounts.isNotEmpty) {
+          setState(() => _fromIban = cubit.state.myAccounts.first.iban);
+        }
+      }
+    });
+  }
+
   @override
   void dispose() {
     _beneficiaryName.dispose();
@@ -172,7 +197,11 @@ class _NewPaymentDialogState extends State<_NewPaymentDialog> {
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: BlocBuilder<PaymentsCubit, PaymentsState>(
-          buildWhen: (p, n) => p.submitting != n.submitting || p.submitError != n.submitError,
+          buildWhen: (p, n) =>
+              p.submitting != n.submitting ||
+              p.submitError != n.submitError ||
+              p.myAccounts != n.myAccounts ||
+              p.users != n.users,
           builder: (context, state) {
             return Form(
               key: _formKey,
@@ -192,10 +221,36 @@ class _NewPaymentDialogState extends State<_NewPaymentDialog> {
                     decoration: const InputDecoration(labelText: 'Beneficiary Account (IBAN)'),
                     validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
                   ),
-                  TextFormField(
-                    controller: _fromAccount,
+                  // From IBAN dropdown loaded from /accounts/my
+                  DropdownButtonFormField<String>(
+                    value: _fromIban,
+                    items: state.myAccounts
+                        .where((a) => (a.iban ?? '').isNotEmpty)
+                        .map((a) => DropdownMenuItem<String>(value: a.iban, child: Text(a.iban!)))
+                        .toList(),
+                    onChanged: state.submitting ? null : (v) => setState(() => _fromIban = v),
                     decoration: const InputDecoration(labelText: 'From Account (IBAN)'),
                     validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 8),
+                  // Users dropdown from /users (fills beneficiary name)
+                  DropdownButtonFormField<String>(
+                    value: (_beneficiaryName.text.isEmpty) ? null : _beneficiaryName.text,
+                    hint: const Text('Select User (optional)'),
+                    items: state.users.where((u) => ((u.displayName ?? u.email ?? '').isNotEmpty)).map((u) {
+                      final name = (u.displayName ?? u.email) ?? '';
+                      return DropdownMenuItem<String>(value: name, child: Text(name));
+                    }).toList(),
+                    onChanged: state.submitting
+                        ? null
+                        : (name) {
+                            if (name != null) {
+                              setState(() {
+                                _beneficiaryName.text = name;
+                              });
+                            }
+                          },
+                    decoration: const InputDecoration(labelText: 'Beneficiary (from users)'),
                   ),
                   TextFormField(
                     controller: _amount,
@@ -240,7 +295,7 @@ class _NewPaymentDialogState extends State<_NewPaymentDialog> {
                                 final req = CreatePaymentRequest(
                                   beneficiaryName: _beneficiaryName.text,
                                   beneficiaryAccount: _beneficiaryAccount.text,
-                                  fromAccount: _fromAccount.text,
+                                  fromAccount: _fromIban,
                                   amount: double.tryParse(_amount.text),
                                   currency: _currency,
                                   details: _details.text.isEmpty ? null : _details.text,

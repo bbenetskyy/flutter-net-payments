@@ -14,6 +14,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'Micro App',
       theme: ThemeData(
         // This is the theme of your application.
@@ -108,10 +109,7 @@ class _MyHomePageState extends State<MyHomePage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
             const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
+            Text('$_counter', style: Theme.of(context).textTheme.headlineMedium),
           ],
         ),
       ),
@@ -124,7 +122,6 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 }
 
-
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
 
@@ -135,9 +132,7 @@ class AuthGate extends StatelessWidget {
       future: storage.getToken(),
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
         final token = snapshot.data;
         if (token != null && token.isNotEmpty) {

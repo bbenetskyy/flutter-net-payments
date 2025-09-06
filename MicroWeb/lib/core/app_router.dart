@@ -23,6 +23,7 @@ import '../data/repositories/in_memory_item_repository.dart';
 import '../logic/payments/payments_cubit.dart';
 import '../data/repositories/payments_repository.dart';
 import '../data/repositories/users_repository.dart';
+import '../data/repositories/accounts_repository.dart';
 
 class AppRouter {
   AppRouter({required AuthBloc authBloc})
@@ -57,7 +58,11 @@ class AppRouter {
               GoRoute(
                 path: '/payments',
                 builder: (context, __) => BlocProvider<PaymentsCubit>(
-                  create: (ctx) => PaymentsCubit(ctx.read<PaymentsRepository>(), ctx.read<UsersRepository>())..load(),
+                  create: (ctx) => PaymentsCubit(
+                    ctx.read<PaymentsRepository>(),
+                    ctx.read<UsersRepository>(),
+                    ctx.read<AccountsRepository>(),
+                  )..load(),
                   child: const PaymentsListPage(),
                 ),
               ),
@@ -80,8 +85,11 @@ class AppRouter {
                 builder: (ctx, st) {
                   final id = st.pathParameters['id']!;
                   return BlocProvider<PaymentsCubit>(
-                    create: (ctx) =>
-                        PaymentsCubit(ctx.read<PaymentsRepository>(), ctx.read<UsersRepository>())..loadOne(id),
+                    create: (ctx) => PaymentsCubit(
+                      ctx.read<PaymentsRepository>(),
+                      ctx.read<UsersRepository>(),
+                      ctx.read<AccountsRepository>(),
+                    )..loadOne(id),
                     child: PaymentDetailPage(id: id),
                   );
                 },
