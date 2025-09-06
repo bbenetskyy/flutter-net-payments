@@ -44,7 +44,7 @@ class UserResponse {
   final String? dobHash;
 
   @JsonKey(name: r'verificationStatus', required: false, includeIfNull: false)
-  final String? verificationStatus;
+  final int? verificationStatus;
 
   @JsonKey(name: r'createdAt', required: false, includeIfNull: false)
   final String? createdAt;
@@ -73,7 +73,24 @@ class UserResponse {
       (verificationStatus == null ? 0 : verificationStatus.hashCode) +
       (createdAt == null ? 0 : createdAt.hashCode);
 
-  factory UserResponse.fromJson(Map<String, dynamic> json) => _$UserResponseFromJson(json);
+  factory UserResponse.fromJson(Map<String, dynamic> json) {
+    // Normalize role value: backend may return a nested object for role, while
+    // this model expects a String (e.g., role name). We extract a reasonable
+    // string (name/title/id) if a map is provided.
+    final data = Map<String, dynamic>.from(json);
+    final roleValue = data['role'];
+    if (roleValue is Map) {
+      // Try common keys in order of preference
+      final dynamic name = roleValue['name'] ?? roleValue['title'] ?? roleValue['code'] ?? roleValue['id'];
+      if (name != null) {
+        data['role'] = name.toString();
+      } else {
+        // Fallback to a simple string representation
+        data['role'] = roleValue.toString();
+      }
+    }
+    return _$UserResponseFromJson(data);
+  }
   Map<String, dynamic> toJson() => _$UserResponseToJson(this);
 
   static List<UserResponse> listFromJson(dynamic data) {

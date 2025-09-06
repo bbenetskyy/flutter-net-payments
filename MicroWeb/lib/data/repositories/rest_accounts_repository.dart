@@ -1,3 +1,4 @@
+import '../models/responses/account_response.dart';
 import '../services/api_client.dart';
 import 'accounts_repository.dart';
 
@@ -7,7 +8,14 @@ class RestAccountsRepository implements AccountsRepository {
   final ApiClient _api;
 
   @override
-  Future<dynamic> listMyAccounts({Map<String, dynamic>? query}) async {
-    return await _api.get('/accounts/my', query: query);
+  Future<List<AccountResponse>> listMyAccounts({Map<String, dynamic>? query}) async {
+    final data = await _api.get('/accounts/my', query: query);
+    return AccountResponse.listFromJson(data);
+  }
+
+  @override
+  Future<List<AccountResponse>> listUserAccounts(String userId, {Map<String, dynamic>? query}) async {
+    final data = await _api.get('/accounts/$userId', query: query);
+    return AccountResponse.listFromJson(data);
   }
 }

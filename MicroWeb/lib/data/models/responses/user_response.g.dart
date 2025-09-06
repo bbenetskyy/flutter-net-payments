@@ -13,28 +13,28 @@ UserResponse _$UserResponseFromJson(Map<String, dynamic> json) =>
         email: $checkedConvert('email', (v) => v as String?),
         displayName: $checkedConvert('displayName', (v) => v as String?),
         role: $checkedConvert('role', (v) => v as String?),
-        effectivePermissions: $checkedConvert('effectivePermissions', (v) => (v as num?)?.toInt()),
+        effectivePermissions: $checkedConvert(
+          'effectivePermissions',
+          (v) => (v as num?)?.toInt(),
+        ),
         dobHash: $checkedConvert('dobHash', (v) => v as String?),
-        verificationStatus: $checkedConvert('verificationStatus', (v) => v as String?),
+        verificationStatus: $checkedConvert(
+          'verificationStatus',
+          (v) => (v as num?)?.toInt(),
+        ),
         createdAt: $checkedConvert('createdAt', (v) => v as String?),
       );
       return val;
     });
 
-Map<String, dynamic> _$UserResponseToJson(UserResponse instance) {
-  final val = <String, dynamic>{};
-
-  void writeNotNull(String key, dynamic value) {
-    if (value != null) val[key] = value;
-  }
-
-  writeNotNull('id', instance.id);
-  writeNotNull('email', instance.email);
-  writeNotNull('displayName', instance.displayName);
-  writeNotNull('role', instance.role);
-  writeNotNull('effectivePermissions', instance.effectivePermissions);
-  writeNotNull('dobHash', instance.dobHash);
-  writeNotNull('verificationStatus', instance.verificationStatus);
-  writeNotNull('createdAt', instance.createdAt);
-  return val;
-}
+Map<String, dynamic> _$UserResponseToJson(UserResponse instance) =>
+    <String, dynamic>{
+      'id': ?instance.id,
+      'email': ?instance.email,
+      'displayName': ?instance.displayName,
+      'role': ?instance.role,
+      'effectivePermissions': ?instance.effectivePermissions,
+      'dobHash': ?instance.dobHash,
+      'verificationStatus': ?instance.verificationStatus,
+      'createdAt': ?instance.createdAt,
+    };

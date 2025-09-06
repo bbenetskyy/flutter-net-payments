@@ -4,6 +4,7 @@ import '../models/requests/create_role_request.dart';
 import '../models/requests/create_verification_request.dart';
 import '../models/requests/update_role_request.dart';
 import '../models/requests/update_user_request.dart';
+import '../models/responses/user_response.dart';
 import '../models/users_verification_decision_request.dart';
 import '../models/verification_decision_request.dart';
 
@@ -12,8 +13,8 @@ import '../models/verification_decision_request.dart';
 /// even if the swagger is hosted elsewhere.
 abstract class UsersRepository {
   // Basic users
-  Future<dynamic> getMe();
-  Future<dynamic> listUsers({Map<String, dynamic>? query});
+  Future<UserResponse> getMe();
+  Future<List<UserResponse>> listUsers({Map<String, dynamic>? query});
   Future<dynamic> getUserById(String id);
   Future<dynamic> updateUser(String id, UpdateUserRequest request);
 

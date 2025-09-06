@@ -43,7 +43,36 @@ class AccountResponse {
       currency.hashCode +
       (createdAt == null ? 0 : createdAt.hashCode);
 
-  factory AccountResponse.fromJson(Map<String, dynamic> json) => _$AccountResponseFromJson(json);
+  factory AccountResponse.fromJson(Map<String, dynamic> json) {
+    // Normalize currency value: backend may return ISO strings (e.g., "USD") while
+    // the generated mapper expects numeric enum values (0..3). We convert here.
+    final data = Map<String, dynamic>.from(json);
+    final cur = data['currency'];
+    if (cur is String) {
+      final lc = cur.toUpperCase();
+      switch (lc) {
+        case 'EUR':
+          data['currency'] = 0;
+          break;
+        case 'USD':
+          data['currency'] = 1;
+          break;
+        case 'PLN':
+          data['currency'] = 2;
+          break;
+        case 'GBP':
+          data['currency'] = 3;
+          break;
+        default:
+          // Also handle numeric strings like '0', '1', etc.
+          final asInt = int.tryParse(cur);
+          if (asInt != null) {
+            data['currency'] = asInt;
+          }
+      }
+    }
+    return _$AccountResponseFromJson(data);
+  }
 
   Map<String, dynamic> toJson() => _$AccountResponseToJson(this);
 

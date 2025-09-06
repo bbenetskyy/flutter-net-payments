@@ -1,3 +1,5 @@
+import 'package:micro_web/data/models/responses/user_response.dart';
+
 import '../models/requests/admin_assign_role_for_verification_request.dart';
 import '../models/requests/admin_create_user_request.dart';
 import '../models/requests/create_role_request.dart';
@@ -15,15 +17,15 @@ class RestUsersRepository implements UsersRepository {
   final ApiClient _api;
 
   @override
-  Future<dynamic> getMe() async {
-    final data = await _api.get('/users/me');
-    return data;
-    // If your gateway exposes /auth/me instead, switch to: return await _api.get('/auth/me');
+  Future<UserResponse> getMe() async {
+    final data = await _api.get('/me');
+    return UserResponse.fromJson(data);
   }
 
   @override
-  Future<dynamic> listUsers({Map<String, dynamic>? query}) async {
-    return await _api.get('/users', query: query);
+  Future<List<UserResponse>> listUsers({Map<String, dynamic>? query}) async {
+    final data = await _api.get('/users', query: query);
+    return UserResponse.listFromJson(data);
   }
 
   @override

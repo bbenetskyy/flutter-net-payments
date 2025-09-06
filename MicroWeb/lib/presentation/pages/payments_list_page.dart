@@ -6,6 +6,7 @@ import '../../logic/payments/payments_cubit.dart';
 import '../../data/models/responses/payment_response.dart';
 import '../../data/models/requests/create_payment_request.dart';
 import '../../data/models/currency.dart';
+import '../../data/models/responses/user_response.dart';
 
 Color _statusColor(String status) {
   final s = status.toLowerCase();
@@ -162,6 +163,14 @@ class _NewPaymentDialogState extends State<_NewPaymentDialog> {
   String? _fromIban; // selected from accounts/my
   String? _selectedUserId; // selected from /users
 
+  double? _toMinorUnits(String text) {
+    final normalized = text.trim().replaceAll(' ', '').replaceAll(',', '.');
+    return double.tryParse(normalized);
+    // final d = double.tryParse(normalized);
+    // if (d == null) return null;
+    // return (d * 100).round();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -201,117 +210,138 @@ class _NewPaymentDialogState extends State<_NewPaymentDialog> {
               p.submitting != n.submitting ||
               p.submitError != n.submitError ||
               p.myAccounts != n.myAccounts ||
-              p.users != n.users,
+              p.users != n.users ||
+              p.beneficiaryAccounts != n.beneficiaryAccounts,
           builder: (context, state) {
             return Form(
               key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text('New Payment', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _beneficiaryName,
-                    decoration: const InputDecoration(labelText: 'Beneficiary Name'),
-                    validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
-                  ),
-                  TextFormField(
-                    controller: _beneficiaryAccount,
-                    decoration: const InputDecoration(labelText: 'Beneficiary Account (IBAN)'),
-                    validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
-                  ),
-                  // From IBAN dropdown loaded from /accounts/my
-                  DropdownButtonFormField<String>(
-                    value: _fromIban,
-                    items: state.myAccounts
-                        .where((a) => (a.iban ?? '').isNotEmpty)
-                        .map((a) => DropdownMenuItem<String>(value: a.iban, child: Text(a.iban!)))
-                        .toList(),
-                    onChanged: state.submitting ? null : (v) => setState(() => _fromIban = v),
-                    decoration: const InputDecoration(labelText: 'From Account (IBAN)'),
-                    validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
-                  ),
-                  const SizedBox(height: 8),
-                  // Users dropdown from /users (fills beneficiary name)
-                  DropdownButtonFormField<String>(
-                    value: (_beneficiaryName.text.isEmpty) ? null : _beneficiaryName.text,
-                    hint: const Text('Select User (optional)'),
-                    items: state.users.where((u) => ((u.displayName ?? u.email ?? '').isNotEmpty)).map((u) {
-                      final name = (u.displayName ?? u.email) ?? '';
-                      return DropdownMenuItem<String>(value: name, child: Text(name));
-                    }).toList(),
-                    onChanged: state.submitting
-                        ? null
-                        : (name) {
-                            if (name != null) {
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 280),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text('New Payment', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 12),
+                    // Users dropdown from /users (fills beneficiary name and loads their accounts)
+                    DropdownButtonFormField<String>(
+                      value: _selectedUserId,
+                      hint: const Text('Select User (optional)'),
+                      items: state.users.where((u) => ((u.displayName ?? u.email ?? '').isNotEmpty)).map((u) {
+                        final name = (u.displayName ?? u.email) ?? '';
+                        return DropdownMenuItem<String>(value: u.id, child: Text(name));
+                      }).toList(),
+                      onChanged: state.submitting
+                          ? null
+                          : (userId) async {
                               setState(() {
-                                _beneficiaryName.text = name;
-                              });
-                            }
-                          },
-                    decoration: const InputDecoration(labelText: 'Beneficiary (from users)'),
-                  ),
-                  TextFormField(
-                    controller: _amount,
-                    decoration: const InputDecoration(labelText: 'Amount'),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9\.]'))],
-                    validator: (v) {
-                      if (v == null || v.isEmpty) return 'Required';
-                      final d = double.tryParse(v);
-                      if (d == null || d <= 0) return 'Enter a positive number';
-                      return null;
-                    },
-                  ),
-                  DropdownButtonFormField<Currency>(
-                    value: _currency,
-                    items: Currency.values.map((c) => DropdownMenuItem(value: c, child: Text(c.name))).toList(),
-                    onChanged: state.submitting ? null : (v) => setState(() => _currency = v),
-                    decoration: const InputDecoration(labelText: 'Currency'),
-                  ),
-                  TextFormField(
-                    controller: _details,
-                    decoration: const InputDecoration(labelText: 'Details'),
-                  ),
-                  if (state.submitError != null) ...[
-                    const SizedBox(height: 8),
-                    Text(state.submitError!, style: const TextStyle(color: Colors.red)),
-                  ],
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: state.submitting ? null : () => Navigator.of(context).pop(),
-                        child: const Text('Cancel'),
-                      ),
-                      const SizedBox(width: 8),
-                      FilledButton(
-                        onPressed: state.submitting
-                            ? null
-                            : () async {
-                                if (!_formKey.currentState!.validate()) return;
-                                final req = CreatePaymentRequest(
-                                  beneficiaryName: _beneficiaryName.text,
-                                  beneficiaryAccount: _beneficiaryAccount.text,
-                                  fromAccount: _fromIban,
-                                  amount: double.tryParse(_amount.text),
-                                  currency: _currency,
-                                  details: _details.text.isEmpty ? null : _details.text,
+                                _selectedUserId = userId;
+                                final selected = state.users.firstWhere(
+                                  (u) => u.id == userId,
+                                  orElse: () => UserResponse(id: userId, displayName: null, email: null),
                                 );
-                                final created = await context.read<PaymentsCubit>().create(req);
-                                if (created != null && context.mounted) {
-                                  Navigator.of(context).pop();
-                                }
-                              },
-                        child: state.submitting
-                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                            : const Text('Submit'),
+                                final name = (selected.displayName ?? selected.email) ?? '';
+                                _beneficiaryName.text = name;
+                                _beneficiaryAccount.text = '';
+                              });
+                              await context.read<PaymentsCubit>().loadBeneficiaryAccounts(userId);
+                            },
+                      decoration: const InputDecoration(labelText: 'Beneficiary (from users)'),
+                    ),
+                    if (state.beneficiaryAccounts.isNotEmpty)
+                      DropdownButtonFormField<String>(
+                        value: (_beneficiaryAccount.text.isEmpty) ? null : _beneficiaryAccount.text,
+                        items: state.beneficiaryAccounts
+                            .where((a) => (a.iban ?? '').isNotEmpty)
+                            .map((a) => DropdownMenuItem<String>(value: a.iban, child: Text(a.iban!)))
+                            .toList(),
+                        onChanged: state.submitting
+                            ? null
+                            : (v) => setState(() {
+                                _beneficiaryAccount.text = v ?? '';
+                              }),
+                        decoration: const InputDecoration(labelText: 'Beneficiary Account (IBAN)'),
+                        validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+                      )
+                    else
+                      TextFormField(
+                        controller: _beneficiaryAccount,
+                        decoration: const InputDecoration(labelText: 'Beneficiary Account (IBAN)'),
+                        validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
                       ),
+                    // From IBAN dropdown loaded from /accounts/my
+                    DropdownButtonFormField<String>(
+                      value: _fromIban,
+                      items: state.myAccounts
+                          .where((a) => (a.iban ?? '').isNotEmpty)
+                          .map((a) => DropdownMenuItem<String>(value: a.iban, child: Text(a.iban!)))
+                          .toList(),
+                      onChanged: state.submitting ? null : (v) => setState(() => _fromIban = v),
+                      decoration: const InputDecoration(labelText: 'From Account (IBAN)'),
+                      validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _amount,
+                      decoration: const InputDecoration(labelText: 'Amount'),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9\.,]'))],
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return 'Required';
+                        final cents = _toMinorUnits(v);
+                        if (cents == null || cents <= 0) return 'Enter a positive number';
+                        return null;
+                      },
+                    ),
+                    DropdownButtonFormField<Currency>(
+                      value: _currency,
+                      items: Currency.values.map((c) => DropdownMenuItem(value: c, child: Text(c.name))).toList(),
+                      onChanged: state.submitting ? null : (v) => setState(() => _currency = v),
+                      decoration: const InputDecoration(labelText: 'Currency'),
+                    ),
+                    TextFormField(
+                      controller: _details,
+                      decoration: const InputDecoration(labelText: 'Details'),
+                    ),
+                    if (state.submitError != null) ...[
+                      const SizedBox(height: 8),
+                      Text(state.submitError!, style: const TextStyle(color: Colors.red)),
                     ],
-                  ),
-                ],
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: state.submitting ? null : () => Navigator.of(context).pop(),
+                          child: const Text('Cancel'),
+                        ),
+                        const SizedBox(width: 8),
+                        FilledButton(
+                          onPressed: state.submitting
+                              ? null
+                              : () async {
+                                  if (!_formKey.currentState!.validate()) return;
+                                  final req = CreatePaymentRequest(
+                                    beneficiaryName: _beneficiaryName.text,
+                                    beneficiaryAccount: _beneficiaryAccount.text,
+                                    fromAccount: _fromIban,
+                                    amount: _toMinorUnits(_amount.text),
+                                    currency: _currency,
+                                    details: _details.text.isEmpty ? null : _details.text,
+                                  );
+                                  final created = await context.read<PaymentsCubit>().create(req);
+                                  if (created != null && context.mounted) {
+                                    Navigator.of(context).pop();
+                                  }
+                                },
+                          child: state.submitting
+                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                              : const Text('Submit'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             );
           },

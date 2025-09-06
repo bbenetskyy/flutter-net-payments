@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../data/models/requests/create_payment_request.dart';
@@ -19,6 +20,7 @@ class PaymentsState extends Equatable {
     this.currentUser,
     this.myAccounts = const [],
     this.users = const [],
+    this.beneficiaryAccounts = const [],
   });
 
   final bool loading;
@@ -31,6 +33,7 @@ class PaymentsState extends Equatable {
   final UserResponse? currentUser;
   final List<AccountResponse> myAccounts;
   final List<UserResponse> users;
+  final List<AccountResponse> beneficiaryAccounts;
 
   PaymentsState copyWith({
     bool? loading,
@@ -41,6 +44,7 @@ class PaymentsState extends Equatable {
     UserResponse? currentUser,
     List<AccountResponse>? myAccounts,
     List<UserResponse>? users,
+    List<AccountResponse>? beneficiaryAccounts,
   }) {
     return PaymentsState(
       loading: loading ?? this.loading,
@@ -51,11 +55,22 @@ class PaymentsState extends Equatable {
       currentUser: currentUser ?? this.currentUser,
       myAccounts: myAccounts ?? this.myAccounts,
       users: users ?? this.users,
+      beneficiaryAccounts: beneficiaryAccounts ?? this.beneficiaryAccounts,
     );
   }
 
   @override
-  List<Object?> get props => [loading, items, error, submitting, submitError, currentUser, myAccounts, users];
+  List<Object?> get props => [
+    loading,
+    items,
+    error,
+    submitting,
+    submitError,
+    currentUser,
+    myAccounts,
+    users,
+    beneficiaryAccounts,
+  ];
 }
 
 class PaymentsCubit extends Cubit<PaymentsState> {
@@ -68,17 +83,36 @@ class PaymentsCubit extends Cubit<PaymentsState> {
   Future<void> prefetchFormLookups() async {
     try {
       // Load users list for dropdown; also keep first as current user for header.
-      final usersData = await _usersRepo.listUsers();
-      final users = UserResponse.listFromJson(usersData);
-      final me = users.isNotEmpty ? users.first : null;
+      final users = await _usersRepo.listUsers();
+      final me = await _usersRepo.getMe();
+
+      //remove me from users
+      users.removeWhere((u) => u.id == me.id);
 
       // Load my accounts for IBAN dropdown
-      final accountsData = await _accountsRepo.listMyAccounts();
-      final accounts = AccountResponse.listFromJson(accountsData);
+      final accounts = await _accountsRepo.listMyAccounts();
 
-      emit(state.copyWith(currentUser: me ?? state.currentUser, users: users, myAccounts: accounts));
-    } catch (_) {
-      // Silently ignore; UI will handle empty lists.
+      emit(state.copyWith(currentUser: me, users: users, myAccounts: accounts));
+    } catch (e) {
+      if (kDebugMode) {
+        print('‼️PaymentsCubit: prefetchFormLookups error: $e');
+      }
+    }
+  }
+
+  Future<void> loadBeneficiaryAccounts(String? userId) async {
+    if (userId == null || userId.isEmpty) {
+      emit(state.copyWith(beneficiaryAccounts: const []));
+      return;
+    }
+    try {
+      final list = await _accountsRepo.listUserAccounts(userId);
+      emit(state.copyWith(beneficiaryAccounts: list));
+    } catch (e) {
+      if (kDebugMode) {
+        print('‼️PaymentsCubit: loadBeneficiaryAccounts error: $e');
+      }
+      emit(state.copyWith(beneficiaryAccounts: const []));
     }
   }
 
@@ -119,19 +153,11 @@ class PaymentsCubit extends Cubit<PaymentsState> {
 
   Future<PaymentResponse?> create(CreatePaymentRequest request) async {
     emit(state.copyWith(submitting: true, submitError: null));
-    await prefetchFormLookups();
     try {
       final data = await _repo.createPayment(request);
-      final list = PaymentResponse.listFromJson(data);
-      final created = list.isNotEmpty ? list.first : null;
-      if (created != null) {
-        final updated = [created, ...state.items];
-        emit(state.copyWith(submitting: false, items: updated));
-      } else {
-        // if backend doesn't return created entity, just refresh
-        await load();
-        emit(state.copyWith(submitting: false));
-      }
+      final created = PaymentResponse.fromJson(data['payment']);
+      final updated = [created, ...state.items];
+      emit(state.copyWith(submitting: false, items: updated));
       return created;
     } catch (e) {
       emit(state.copyWith(submitting: false, submitError: e.toString()));
