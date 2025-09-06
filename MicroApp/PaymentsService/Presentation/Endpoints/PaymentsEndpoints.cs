@@ -157,75 +157,91 @@ public static class PaymentsEndpoints
 
             if (!allowed) return Results.Forbid();
 
-            var newStatus = req.Accept ? VerificationStatus.Completed : VerificationStatus.Rejected;
-            v = await store.Decide(id, newStatus);
+            var intendedStatus = req.Accept ? VerificationStatus.Completed : VerificationStatus.Rejected;
 
-            if (newStatus == VerificationStatus.Completed)
+            if (intendedStatus == VerificationStatus.Rejected)
             {
-                if (v.Action == VerificationAction.PaymentCreated)
+                v = await store.Decide(id, VerificationStatus.Rejected);
+                return Results.Ok(v);
+            }
+
+            // intended Completed
+            if (v.Action == VerificationAction.PaymentCreated)
+            {
+                try
                 {
-                    p.Status = PaymentStatus.Confirmed;
+                    var client = http.RequestServices.GetRequiredService<IHttpClientFactory>().CreateClient("wallet");
+                    // Compute minor units with 2 decimals
+                    var amountRounded = Math.Round(p.Amount, 2, MidpointRounding.AwayFromZero);
+                    long amountMinor = (long)Math.Round(amountRounded * 100m, 0, MidpointRounding.AwayFromZero);
+                    var evt = new WalletEvent
+                    {
+                        IntentId = p.Id,
+                        UserId = p.UserId,                      // payer
+                        BeneficiaryId = p.BeneficiaryId!.Value, // payee
+                        AmountMinor = amountMinor,
+                        Currency = p.Currency,
+                        EventType = Common.Domain.Enums.PaymentEventType.PaymentCaptured,
+                        Description = string.IsNullOrWhiteSpace(p.Details) ? $"Payment {p.Id} to {p.BeneficiaryName}" : p.Details
+                    };
+                    var res = await client.PostAsJsonAsync("/internal/events/payment", evt);
+                    var body = await res.Content.ReadAsStringAsync();
+
+                    v = await store.Decide(id, res.IsSuccessStatusCode ? VerificationStatus.Completed : VerificationStatus.Rejected);
+                    p.Status = res.IsSuccessStatusCode ? PaymentStatus.Confirmed : PaymentStatus.Rejected;
+
                     p.UpdatedAt = DateTime.UtcNow;
                     await db.SaveChangesAsync();
 
-                    // Publish wallet event: credit beneficiary wallet upon confirmation
-                    try
-                    {
-                        var client = http.RequestServices.GetRequiredService<IHttpClientFactory>().CreateClient("wallet");
-                        // Compute minor units with 2 decimals
-                        var amountRounded = Math.Round(p.Amount, 2, MidpointRounding.AwayFromZero);
-                        long amountMinor = (long)Math.Round(amountRounded * 100m, 0, MidpointRounding.AwayFromZero);
-                        var evt = new WalletEvent
-                        {
-                            IntentId = p.Id,
-                            UserId = p.UserId,                      // payer
-                            BeneficiaryId = p.BeneficiaryId!.Value, // payee
-                            AmountMinor = amountMinor,
-                            Currency = p.Currency,
-                            EventType = Common.Domain.Enums.PaymentEventType.PaymentCaptured,
-                            Description = string.IsNullOrWhiteSpace(p.Details) ? $"Payment {p.Id} to {p.BeneficiaryName}" : p.Details
-                        };
-                        var res = await client.PostAsJsonAsync("/internal/events/payment", evt);
-                        var body = await res.Content.ReadAsStringAsync();
-                        return Results.Content(body, res.Content.Headers.ContentType?.ToString(), Encoding.Default, (int)res.StatusCode);
-                    }
-                    catch (Exception ex)
-                    {
-                        return Results.BadRequest("Failed to publish wallet event: " + ex.Message);
-                    }
+                    return Results.Content(body, res.Content.Headers.ContentType?.ToString(), Encoding.Default, (int)res.StatusCode);
                 }
-                else if (v.Action == VerificationAction.PaymentReverted)
+                catch (Exception ex)
                 {
-                    p.Status = PaymentStatus.Rejected; // minimal interpretation
+                    v = await store.Decide(id, VerificationStatus.Rejected);
+                    p.Status = PaymentStatus.Rejected;
+                    p.UpdatedAt = DateTime.UtcNow;
+                    await db.SaveChangesAsync();
+                    return Results.BadRequest("Failed to publish wallet event: " + ex.Message);
+                }
+            }
+            else if (v.Action == VerificationAction.PaymentReverted)
+            {
+                try
+                {
+                    var client = http.RequestServices.GetRequiredService<IHttpClientFactory>().CreateClient("wallet");
+                    var amountRounded = Math.Round(p.Amount, 2, MidpointRounding.AwayFromZero);
+                    long amountMinor = (long)Math.Round(amountRounded * 100m, 0, MidpointRounding.AwayFromZero);
+                    var evt = new WalletEvent
+                    {
+                        IntentId = p.Id,
+                        UserId = p.UserId,                      // original payer
+                        BeneficiaryId = p.BeneficiaryId!.Value, // original payee
+                        AmountMinor = amountMinor,
+                        Currency = p.Currency,
+                        EventType = Common.Domain.Enums.PaymentEventType.RefundSucceeded,
+                        Description = string.IsNullOrWhiteSpace(p.Details)
+                            ? $"Reverted payment {p.Id} from {p.BeneficiaryName}"
+                            : p.Details
+                    };
+                    var res = await client.PostAsJsonAsync("/internal/events/payment", evt);
+                    var body = await res.Content.ReadAsStringAsync();
+
+                    v = await store.Decide(id, res.IsSuccessStatusCode ? VerificationStatus.Completed : VerificationStatus.Rejected);
+                    p.Status = res.IsSuccessStatusCode ? PaymentStatus.Confirmed : PaymentStatus.Rejected;
+
                     p.UpdatedAt = DateTime.UtcNow;
                     await db.SaveChangesAsync();
 
-                    // Publish wallet event: reverse beneficiary wallet credit on revert
-                    try
-                    {
-                        var client = http.RequestServices.GetRequiredService<IHttpClientFactory>().CreateClient("wallet");
-                        var amountRounded = Math.Round(p.Amount, 2, MidpointRounding.AwayFromZero);
-                        long amountMinor = (long)Math.Round(amountRounded * 100m, 0, MidpointRounding.AwayFromZero);
-                        var evt = new WalletEvent
-                        {
-                            IntentId = p.Id,
-                            UserId = p.UserId,                      // original payer
-                            BeneficiaryId = p.BeneficiaryId!.Value, // original payee
-                            AmountMinor = amountMinor,
-                            Currency = p.Currency,
-                            EventType = Common.Domain.Enums.PaymentEventType.RefundSucceeded,
-                            Description = string.IsNullOrWhiteSpace(p.Details)
-                                ? $"Reverted payment {p.Id} from {p.BeneficiaryName}"
-                                : p.Details
-                        };
-                        var res = await client.PostAsJsonAsync("/internal/events/payment", evt);
-                        var body = await res.Content.ReadAsStringAsync();
-                        return Results.Content(body, res.Content.Headers.ContentType?.ToString(), Encoding.Default, (int)res.StatusCode);
-                    }
-                    catch (Exception ex)
-                    {
-                        return Results.BadRequest("Failed to publish revert wallet event: " + ex.Message);
-                    }
+
+                    return Results.Content(body, res.Content.Headers.ContentType?.ToString(), Encoding.Default, (int)res.StatusCode);
+                }
+                catch (Exception ex)
+                {
+                    v = await store.Decide(id, VerificationStatus.Rejected);
+                    p.Status = PaymentStatus.Rejected;
+                    p.UpdatedAt = DateTime.UtcNow;
+                    await db.SaveChangesAsync();
+                    return Results.BadRequest("Failed to publish revert wallet event: " + ex.Message);
                 }
             }
             return Results.Ok(v);
