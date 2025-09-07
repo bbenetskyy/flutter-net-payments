@@ -7,41 +7,19 @@ import 'package:json_annotation/json_annotation.dart';
 
 part 'assign_card_request.g.dart';
 
-
-@JsonSerializable(
-  checked: true,
-  createToJson: true,
-  disallowUnrecognizedKeys: false,
-  explicitToJson: true,
-)
+@JsonSerializable(checked: true, createToJson: true, disallowUnrecognizedKeys: false, explicitToJson: true)
 class AssignCardRequest {
   /// Returns a new [AssignCardRequest] instance.
-  AssignCardRequest({
+  AssignCardRequest({this.userId});
 
-     this.userId,
-  });
-
-  @JsonKey(
-    
-    name: r'userId',
-    required: false,
-    includeIfNull: false,
-  )
-
-
+  @JsonKey(name: r'userId', required: false, includeIfNull: false)
   final String? userId;
 
+  @override
+  bool operator ==(Object other) => identical(this, other) || other is AssignCardRequest && other.userId == userId;
 
-
-
-
-    @override
-    bool operator ==(Object other) => identical(this, other) || other is AssignCardRequest &&
-      other.userId == userId;
-
-    @override
-    int get hashCode =>
-        userId.hashCode;
+  @override
+  int get hashCode => userId.hashCode;
 
   factory AssignCardRequest.fromJson(Map<String, dynamic> json) => _$AssignCardRequestFromJson(json);
 
@@ -51,6 +29,4 @@ class AssignCardRequest {
   String toString() {
     return toJson().toString();
   }
-
 }
-

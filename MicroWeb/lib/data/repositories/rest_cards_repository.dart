@@ -31,8 +31,8 @@ class RestCardsRepository implements CardsRepository {
   }
 
   @override
-  Future<void> deleteCard(String id) async {
-    await _api.delete('/cards/$id');
+  Future<void> terminateCard(String id) async {
+    await _api.post('/cards/$id/request-termination');
   }
 
   @override

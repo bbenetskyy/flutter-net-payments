@@ -21,10 +21,10 @@ class CreateCardRequest {
   final String? name;
 
   @JsonKey(name: r'singleTransactionLimit', required: false, includeIfNull: false)
-  final double? singleTransactionLimit;
+  final int? singleTransactionLimit;
 
   @JsonKey(name: r'monthlyLimit', required: false, includeIfNull: false)
-  final double? monthlyLimit;
+  final int? monthlyLimit;
 
   @override
   bool operator ==(Object other) =>

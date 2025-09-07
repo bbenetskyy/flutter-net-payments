@@ -9,3 +9,26 @@ abstract class CardsEvent extends Equatable {
 class CardsRequested extends CardsEvent {
   const CardsRequested();
 }
+
+class CardCreateRequested extends CardsEvent {
+  const CardCreateRequested(this.request, this.completer);
+  final CreateCardRequest request;
+  final Completer<CardResponse?> completer;
+}
+
+class CardAssignRequested extends CardsEvent {
+  const CardAssignRequested(this.id, this.userId, this.completer);
+  final String id;
+  final String userId;
+  final Completer<void> completer;
+}
+
+class CardTerminationRequested extends CardsEvent {
+  const CardTerminationRequested(this.id, this.completer);
+  final String id;
+  final Completer<void> completer;
+}
+
+class UsersLoadRequested extends CardsEvent {
+  const UsersLoadRequested();
+}

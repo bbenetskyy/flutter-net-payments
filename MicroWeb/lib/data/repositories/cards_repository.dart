@@ -10,9 +10,10 @@ abstract class CardsRepository {
   Future<dynamic> getCardById(String id);
   Future<dynamic> createCard(CreateCardRequest request);
   Future<dynamic> updateCard(String id, UpdateCardRequest request);
-  Future<void> deleteCard(String id);
+  Future<void> terminateCard(String id);
 
   // Actions
   Future<void> assignCard(String id, AssignCardRequest request);
   Future<void> topUpCard(String id, TopUpRequest request);
+
 }

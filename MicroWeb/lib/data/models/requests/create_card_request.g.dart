@@ -16,11 +16,11 @@ CreateCardRequest _$CreateCardRequestFromJson(Map<String, dynamic> json) =>
         name: $checkedConvert('name', (v) => v as String?),
         singleTransactionLimit: $checkedConvert(
           'singleTransactionLimit',
-          (v) => (v as num?)?.toDouble(),
+          (v) => (v as num?)?.toInt(),
         ),
         monthlyLimit: $checkedConvert(
           'monthlyLimit',
-          (v) => (v as num?)?.toDouble(),
+          (v) => (v as num?)?.toInt(),
         ),
       );
       return val;

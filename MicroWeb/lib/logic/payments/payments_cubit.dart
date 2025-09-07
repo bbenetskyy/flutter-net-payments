@@ -73,73 +73,73 @@ class PaymentsState extends Equatable {
   ];
 }
 
-class PaymentsCubit extends Cubit<PaymentsState> {
-  PaymentsCubit(this._repo, this._usersRepo, this._accountsRepo) : super(const PaymentsState());
-
-  final PaymentsRepository _repo;
-  final UsersRepository _usersRepo;
-  final AccountsRepository _accountsRepo;
-
-  Future<void> prefetchFormLookups() async {
-    try {
-      // Load users list for dropdown; also keep first as current user for header.
-      final users = await _usersRepo.listUsers();
-      final me = await _usersRepo.getMe();
-
-      //remove me from users
-      users.removeWhere((u) => u.id == me.id);
-
-      // Load my accounts for IBAN dropdown
-      final accounts = await _accountsRepo.listMyAccounts();
-
-      emit(state.copyWith(currentUser: me, users: users, myAccounts: accounts));
-    } catch (e) {
-      if (kDebugMode) {
-        print('‼️PaymentsCubit: prefetchFormLookups error: $e');
-      }
-    }
-  }
-
-  Future<void> loadBeneficiaryAccounts(String? userId) async {
-    if (userId == null || userId.isEmpty) {
-      emit(state.copyWith(beneficiaryAccounts: const []));
-      return;
-    }
-    try {
-      final list = await _accountsRepo.listUserAccounts(userId);
-      emit(state.copyWith(beneficiaryAccounts: list));
-    } catch (e) {
-      if (kDebugMode) {
-        print('‼️PaymentsCubit: loadBeneficiaryAccounts error: $e');
-      }
-      emit(state.copyWith(beneficiaryAccounts: const []));
-    }
-  }
-
-  Future<void> load({Map<String, dynamic>? query}) async {
-    emit(state.copyWith(loading: true, error: null));
-    await prefetchFormLookups();
-    try {
-      final data = await _repo.listPayments(query: query);
-      final list = PaymentResponse.listFromJson(data);
-      emit(state.copyWith(loading: false, items: list, error: null));
-    } catch (e) {
-      //ignore
-      // emit(state.copyWith(loading: false, error: e.toString()));
-    }
-  }
-
-  Future<PaymentResponse?> create(CreatePaymentRequest request) async {
-    emit(state.copyWith(submitting: true, submitError: null));
-    try {
-      final data = await _repo.createPayment(request);
-      final created = PaymentResponse.fromJson(data['payment']);
-      final updated = [created, ...state.items];
-      emit(state.copyWith(submitting: false, items: updated));
-      return created;
-    } catch (e) {
-      emit(state.copyWith(submitting: false, submitError: e.toString()));
-      return null;
-    }
-  }
-}
+// class PaymentsCubit extends Cubit<PaymentsState> {
+//   PaymentsCubit(this._repo, this._usersRepo, this._accountsRepo) : super(const PaymentsState());
+//
+//   final PaymentsRepository _repo;
+//   final UsersRepository _usersRepo;
+//   final AccountsRepository _accountsRepo;
+//
+//   Future<void> prefetchFormLookups() async {
+//     try {
+//       // Load users list for dropdown; also keep first as current user for header.
+//       final users = await _usersRepo.listUsers();
+//       final me = await _usersRepo.getMe();
+//
+//       //remove me from users
+//       users.removeWhere((u) => u.id == me.id);
+//
+//       // Load my accounts for IBAN dropdown
+//       final accounts = await _accountsRepo.listMyAccounts();
+//
+//       emit(state.copyWith(currentUser: me, users: users, myAccounts: accounts));
+//     } catch (e) {
+//       if (kDebugMode) {
+//         print('‼️PaymentsCubit: prefetchFormLookups error: $e');
+//       }
+//     }
+//   }
+//
+//   Future<void> loadBeneficiaryAccounts(String? userId) async {
+//     if (userId == null || userId.isEmpty) {
+//       emit(state.copyWith(beneficiaryAccounts: const []));
+//       return;
+//     }
+//     try {
+//       final list = await _accountsRepo.listUserAccounts(userId);
+//       emit(state.copyWith(beneficiaryAccounts: list));
+//     } catch (e) {
+//       if (kDebugMode) {
+//         print('‼️PaymentsCubit: loadBeneficiaryAccounts error: $e');
+//       }
+//       emit(state.copyWith(beneficiaryAccounts: const []));
+//     }
+//   }
+//
+//   Future<void> load({Map<String, dynamic>? query}) async {
+//     emit(state.copyWith(loading: true, error: null));
+//     await prefetchFormLookups();
+//     try {
+//       final data = await _repo.listPayments(query: query);
+//       final list = PaymentResponse.listFromJson(data);
+//       emit(state.copyWith(loading: false, items: list, error: null));
+//     } catch (e) {
+//       //ignore
+//       // emit(state.copyWith(loading: false, error: e.toString()));
+//     }
+//   }
+//
+//   Future<PaymentResponse?> create(CreatePaymentRequest request) async {
+//     emit(state.copyWith(submitting: true, submitError: null));
+//     try {
+//       final data = await _repo.createPayment(request);
+//       final created = PaymentResponse.fromJson(data['payment']);
+//       final updated = [created, ...state.items];
+//       emit(state.copyWith(submitting: false, items: updated));
+//       return created;
+//     } catch (e) {
+//       emit(state.copyWith(submitting: false, submitError: e.toString()));
+//       return null;
+//     }
+//   }
+// }

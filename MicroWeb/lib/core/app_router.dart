@@ -73,7 +73,8 @@ class AppRouter {
               GoRoute(
                 path: '/cards',
                 builder: (context, __) => BlocProvider<CardsBloc>(
-                  create: (ctx) => CardsBloc(ctx.read<CardsRepository>())..add(const CardsRequested()),
+                  create: (ctx) =>
+                      CardsBloc(ctx.read<CardsRepository>(), ctx.read<UsersRepository>())..add(const CardsRequested()),
                   child: const CardsListPage(),
                 ),
               ),
@@ -99,7 +100,16 @@ class AppRouter {
                 builder: (ctx, st) {
                   final card = st.extra as CardResponse?;
                   if (card == null) return const NotFoundPage();
-                  return CardDetailPage(card: card);
+                  return BlocProvider<CardsBloc>(
+                    create: (c) {
+                      final bloc = CardsBloc(c.read<CardsRepository>(), c.read<UsersRepository>());
+                      bloc
+                        ..add(const CardsRequested())
+                        ..add(const UsersLoadRequested());
+                      return bloc;
+                    },
+                    child: CardDetailPage(card: card),
+                  );
                 },
               ),
               GoRoute(

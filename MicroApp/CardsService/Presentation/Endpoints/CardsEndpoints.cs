@@ -291,9 +291,16 @@ public static class CardsEndpoints
                 {
                     card.Terminated = true;
                 }
-                card.UpdatedAt = DateTime.UtcNow;
-                await db.SaveChangesAsync();
             }
+            else
+            {
+                if(v.Action == VerificationAction.UserAssignedToCard)
+                {
+                    card.AssignedUserId = null;
+                }
+            }
+            card.UpdatedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
             
             return Results.Ok(v);
         }).RequireAuthorization();
