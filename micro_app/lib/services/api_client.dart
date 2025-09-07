@@ -111,11 +111,12 @@ class ApiClient {
     required String code,
     bool isUsers = false,
     String? targetId,
+    bool accept = true,
   }) async {
     final normalized = endpoint.startsWith('/') ? endpoint.substring(1) : endpoint;
     final uri = Uri.parse('$baseUrl/$normalized/verifications/$id/decision');
     try {
-      final Map<String, dynamic> body = {'code': code, 'accept': true};
+      final Map<String, dynamic> body = {'code': code, 'accept': accept};
       if (isUsers) {
         body['newPassword'] = '1';
         body['targetId'] = targetId;

@@ -14,6 +14,7 @@ class ItemsPage extends StatefulWidget {
 }
 
 class _ItemsPageState extends State<ItemsPage> {
+  bool _accept = true;
   final _api = ApiClient();
   final _storage = AuthStorage();
   String? _token;
@@ -104,6 +105,19 @@ class _ItemsPageState extends State<ItemsPage> {
                     children: [
                       for (var i = 0; i < labels.length; i++)
                         Padding(padding: const EdgeInsets.symmetric(horizontal: 8.0), child: Text(labels[i])),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.toggle_on),
+                      const SizedBox(width: 8),
+                      const Text('Accept decisions'),
+                      const Spacer(),
+                      Switch(value: _accept, onChanged: (v) => setState(() => _accept = v)),
                     ],
                   ),
                 ),
@@ -215,6 +229,7 @@ class _ItemsPageState extends State<ItemsPage> {
                                     code: item.code!,
                                     isUsers: _selectedType == ItemType.users,
                                     targetId: item.targetId,
+                                    accept: _accept,
                                   );
                                   if (!context.mounted) return;
                                   ScaffoldMessenger.of(
