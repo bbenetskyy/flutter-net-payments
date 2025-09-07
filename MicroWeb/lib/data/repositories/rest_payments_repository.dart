@@ -1,5 +1,6 @@
 import '../models/item.dart';
 import '../models/requests/create_payment_request.dart';
+import '../models/requests/create_verification_request.dart';
 import '../models/payment_dto.dart';
 import '../services/api_client.dart';
 import 'item_repository.dart';
@@ -23,6 +24,11 @@ class RestPaymentsRepository implements ItemRepository, PaymentsRepository {
   @override
   Future<dynamic> createPayment(CreatePaymentRequest request) async {
     return await _api.post('/payments', body: request.toJson());
+  }
+
+  @override
+  Future<dynamic> createPaymentVerification(CreateVerificationRequest request) async {
+    return await _api.post('/payments/verifications', body: request.toJson());
   }
 
   // ItemRepository (UI mapping)

@@ -8,6 +8,7 @@ import '../presentation/pages/splash_page.dart';
 import '../presentation/pages/sign_in_page.dart';
 import '../presentation/pages/sign_up_page.dart';
 import '../presentation/pages/payment_detail_page.dart';
+import '../data/models/responses/payment_response.dart';
 import '../presentation/pages/card_detail_page.dart';
 import '../presentation/pages/user_detail_page.dart';
 import '../presentation/pages/registration_success_page.dart';
@@ -18,12 +19,15 @@ import '../presentation/pages/payments_list_page.dart';
 import '../presentation/pages/cards_list_page.dart';
 import '../presentation/pages/users_list_page.dart';
 import '../logic/auth/auth_bloc.dart';
-import '../logic/items/items_bloc.dart';
-import '../data/repositories/in_memory_item_repository.dart';
-import '../logic/payments/payments_cubit.dart';
+import '../logic/cards/cards_bloc.dart';
+import '../data/repositories/cards_repository.dart';
+import '../data/models/responses/card_response.dart';
+import '../logic/payments/payments_bloc.dart';
 import '../data/repositories/payments_repository.dart';
 import '../data/repositories/users_repository.dart';
 import '../data/repositories/accounts_repository.dart';
+import '../logic/users/users_bloc.dart';
+import '../data/models/responses/user_response.dart';
 
 class AppRouter {
   AppRouter({required AuthBloc authBloc})
@@ -57,8 +61,8 @@ class AppRouter {
             routes: [
               GoRoute(
                 path: '/payments',
-                builder: (context, __) => BlocProvider<PaymentsCubit>(
-                  create: (ctx) => PaymentsCubit(
+                builder: (context, __) => BlocProvider<PaymentsBloc>(
+                  create: (ctx) => PaymentsBloc(
                     ctx.read<PaymentsRepository>(),
                     ctx.read<UsersRepository>(),
                     ctx.read<AccountsRepository>(),
@@ -68,45 +72,43 @@ class AppRouter {
               ),
               GoRoute(
                 path: '/cards',
-                builder: (context, __) => BlocProvider<ItemsBloc>(
-                  create: (ctx) => ItemsBloc(InMemoryItemRepository(seedKey: 'cards'))..add(ItemsRequested()),
+                builder: (context, __) => BlocProvider<CardsBloc>(
+                  create: (ctx) => CardsBloc(ctx.read<CardsRepository>())..add(const CardsRequested()),
                   child: const CardsListPage(),
                 ),
               ),
               GoRoute(
                 path: '/users',
-                builder: (context, __) => BlocProvider<ItemsBloc>(
-                  create: (ctx) => ItemsBloc(InMemoryItemRepository(seedKey: 'users'))..add(ItemsRequested()),
+                builder: (context, __) => BlocProvider<UsersBloc>(
+                  create: (ctx) => UsersBloc(ctx.read<UsersRepository>())..load(),
                   child: const UsersListPage(),
                 ),
               ),
               GoRoute(
                 path: '/payments/:id',
                 builder: (ctx, st) {
-                  final id = st.pathParameters['id']!;
-                  return BlocProvider<PaymentsCubit>(
-                    create: (ctx) => PaymentsCubit(
-                      ctx.read<PaymentsRepository>(),
-                      ctx.read<UsersRepository>(),
-                      ctx.read<AccountsRepository>(),
-                    )..loadOne(id),
-                    child: PaymentDetailPage(id: id),
-                  );
+                  final item = st.extra as PaymentResponse?;
+                  if (item == null) {
+                    return const NotFoundPage();
+                  }
+                  return PaymentDetailPage(item: item);
                 },
               ),
               GoRoute(
                 path: '/cards/:id',
-                builder: (ctx, st) => BlocProvider<ItemsBloc>(
-                  create: (ctx) => ItemsBloc(InMemoryItemRepository(seedKey: 'cards'))..add(ItemsRequested()),
-                  child: CardDetailPage(id: st.pathParameters['id']!),
-                ),
+                builder: (ctx, st) {
+                  final card = st.extra as CardResponse?;
+                  if (card == null) return const NotFoundPage();
+                  return CardDetailPage(card: card);
+                },
               ),
               GoRoute(
                 path: '/users/:id',
-                builder: (ctx, st) => BlocProvider<ItemsBloc>(
-                  create: (ctx) => ItemsBloc(InMemoryItemRepository(seedKey: 'users'))..add(ItemsRequested()),
-                  child: UserDetailPage(id: st.pathParameters['id']!),
-                ),
+                builder: (ctx, st) {
+                  final user = st.extra as UserResponse?;
+                  if (user == null) return const NotFoundPage();
+                  return UserDetailPage(user: user);
+                },
               ),
               GoRoute(path: '/settings', builder: (_, __) => const SettingsPage()),
               GoRoute(path: '/profile', builder: (_, __) => const ProfilePage()),

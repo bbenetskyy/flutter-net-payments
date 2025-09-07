@@ -2,17 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/services.dart';
-import '../../logic/payments/payments_cubit.dart';
+import '../../logic/payments/payments_bloc.dart';
 import '../../data/models/responses/payment_response.dart';
 import '../../data/models/requests/create_payment_request.dart';
 import '../../data/models/currency.dart';
 import '../../data/models/responses/user_response.dart';
+import '../../logic/payments/payments_cubit.dart';
 
 Color _statusColor(String status) {
   final s = status.toLowerCase();
-  if (s == 'confirmed') return Colors.green;
-  if (s == 'pending') return Colors.amber;
-  if (s == 'rejected') return Colors.red;
+  if (s == 'confirmed' || s == 'reverted') return Colors.green;
+  if (s == 'pending' || s == 'awaitingreversion') return Colors.amber;
+  if (s == 'rejected' || s == 'reversionrejected') return Colors.red;
   return Colors.grey;
 }
 
@@ -29,7 +30,7 @@ class PaymentsListPage extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: BlocBuilder<PaymentsCubit, PaymentsState>(
+                child: BlocBuilder<PaymentsBloc, PaymentsState>(
                   buildWhen: (p, n) => p.currentUser != n.currentUser,
                   builder: (context, state) {
                     final name = state.currentUser?.displayName;
@@ -43,7 +44,7 @@ class PaymentsListPage extends StatelessWidget {
                   await showDialog(
                     context: context,
                     builder: (_) =>
-                        BlocProvider.value(value: context.read<PaymentsCubit>(), child: const _NewPaymentDialog()),
+                        BlocProvider.value(value: context.read<PaymentsBloc>(), child: const _NewPaymentDialog()),
                   );
                 },
                 icon: const Icon(Icons.add),
@@ -53,7 +54,7 @@ class PaymentsListPage extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Expanded(
-            child: BlocBuilder<PaymentsCubit, PaymentsState>(
+            child: BlocBuilder<PaymentsBloc, PaymentsState>(
               builder: (context, state) {
                 if (state.loading) {
                   return const Center(child: CircularProgressIndicator());
@@ -99,7 +100,7 @@ class _PaymentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: InkWell(
-        onTap: () => context.push('/payments/${item.id}'),
+        onTap: () => context.push('/payments/${item.id}', extra: item),
         child: Padding(
           padding: const EdgeInsets.all(12.0),
           child: Row(
@@ -176,7 +177,7 @@ class _NewPaymentDialogState extends State<_NewPaymentDialog> {
     super.initState();
     // Ensure dropdown data is available
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final cubit = context.read<PaymentsCubit>();
+      final cubit = context.read<PaymentsBloc>();
       if (cubit.state.myAccounts.isEmpty || cubit.state.users.isEmpty) {
         await cubit.prefetchFormLookups();
         if (mounted && _fromIban == null && cubit.state.myAccounts.isNotEmpty) {
@@ -205,7 +206,7 @@ class _NewPaymentDialogState extends State<_NewPaymentDialog> {
     return Dialog(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: BlocBuilder<PaymentsCubit, PaymentsState>(
+        child: BlocBuilder<PaymentsBloc, PaymentsState>(
           buildWhen: (p, n) =>
               p.submitting != n.submitting ||
               p.submitError != n.submitError ||
@@ -244,7 +245,7 @@ class _NewPaymentDialogState extends State<_NewPaymentDialog> {
                                 _beneficiaryName.text = name;
                                 _beneficiaryAccount.text = '';
                               });
-                              await context.read<PaymentsCubit>().loadBeneficiaryAccounts(userId);
+                              await context.read<PaymentsBloc>().loadBeneficiaryAccounts(userId);
                             },
                       decoration: const InputDecoration(labelText: 'Beneficiary (from users)'),
                     ),
@@ -329,7 +330,7 @@ class _NewPaymentDialogState extends State<_NewPaymentDialog> {
                                     currency: _currency,
                                     details: _details.text.isEmpty ? null : _details.text,
                                   );
-                                  final created = await context.read<PaymentsCubit>().create(req);
+                                  final created = await context.read<PaymentsBloc>().create(req);
                                   if (created != null && context.mounted) {
                                     Navigator.of(context).pop();
                                   }

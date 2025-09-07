@@ -1,16 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import '../../logic/items/items_bloc.dart';
-import '../../data/models/item.dart';
+import '../../data/models/responses/user_response.dart';
 
 class UserDetailPage extends StatelessWidget {
-  const UserDetailPage({super.key, required this.id});
-  final String id;
+  const UserDetailPage({super.key, required this.user});
+  final UserResponse user;
 
   @override
   Widget build(BuildContext context) {
-    final Item item = context.select<ItemsBloc, Item>((b) => b.state.items.firstWhere((e) => e.id == id));
+    final title = (user.displayName ?? user.email ?? 'User');
     return Scaffold(
       body: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -23,13 +21,14 @@ class UserDetailPage extends StatelessWidget {
                 const SizedBox(width: 8),
                 const Icon(Icons.person, size: 28),
                 const SizedBox(width: 8),
-                Text(item.title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                Text(title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
               ],
             ),
             const SizedBox(height: 12),
-            if (item.subtitle.isNotEmpty) Text(item.subtitle, style: const TextStyle(color: Colors.grey)),
+            if ((user.email ?? '').isNotEmpty) Text(user.email!, style: const TextStyle(color: Colors.grey)),
             const SizedBox(height: 12),
-            if (item.description.isNotEmpty) Text(item.description),
+            if ((user.role ?? '').isNotEmpty) Text('Role: ${user.role}'),
+            if ((user.createdAt ?? '').isNotEmpty) Text('Created: ${user.createdAt}'),
           ],
         ),
       ),

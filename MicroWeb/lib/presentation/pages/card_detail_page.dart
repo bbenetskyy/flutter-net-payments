@@ -1,16 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import '../../logic/items/items_bloc.dart';
-import '../../data/models/item.dart';
+import '../../data/models/responses/card_response.dart';
 
 class CardDetailPage extends StatelessWidget {
-  const CardDetailPage({super.key, required this.id});
-  final String id;
+  const CardDetailPage({super.key, required this.card});
+  final CardResponse card;
 
   @override
   Widget build(BuildContext context) {
-    final Item item = context.select<ItemsBloc, Item>((b) => b.state.items.firstWhere((e) => e.id == id));
     return Scaffold(
       body: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -23,13 +20,17 @@ class CardDetailPage extends StatelessWidget {
                 const SizedBox(width: 8),
                 const Icon(Icons.credit_card, size: 28),
                 const SizedBox(width: 8),
-                Text(item.title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                Text(card.name, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
               ],
             ),
             const SizedBox(height: 12),
-            if (item.subtitle.isNotEmpty) Text(item.subtitle, style: const TextStyle(color: Colors.grey)),
-            const SizedBox(height: 12),
-            if (item.description.isNotEmpty) Text(item.description),
+            Text('Type: ${card.type.name}'),
+            Text('Printed: ${card.printed ? 'Yes' : 'No'}'),
+            Text('Terminated: ${card.terminated ? 'Yes' : 'No'}'),
+            Text('Single Tx Limit: ${card.singleTransactionLimit}'),
+            Text('Monthly Limit: ${card.monthlyLimit}'),
+            if ((card.assignedUserId ?? '').isNotEmpty) Text('Assigned User: ${card.assignedUserId}'),
+            Text('Created: ${card.createdAt}'),
           ],
         ),
       ),

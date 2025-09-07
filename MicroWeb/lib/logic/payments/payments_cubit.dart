@@ -129,28 +129,6 @@ class PaymentsCubit extends Cubit<PaymentsState> {
     }
   }
 
-  Future<PaymentResponse?> loadOne(String id) async {
-    await prefetchFormLookups();
-    try {
-      final data = await _repo.getPaymentById(id);
-      final list = PaymentResponse.listFromJson(data);
-      final p = list.isNotEmpty ? list.first : null;
-      if (p != null) {
-        final updated = [...state.items];
-        final idx = updated.indexWhere((e) => e.id == p.id);
-        if (idx == -1) {
-          updated.insert(0, p);
-        } else {
-          updated[idx] = p;
-        }
-        emit(state.copyWith(items: updated));
-      }
-      return p;
-    } catch (_) {
-      return null;
-    }
-  }
-
   Future<PaymentResponse?> create(CreatePaymentRequest request) async {
     emit(state.copyWith(submitting: true, submitError: null));
     try {

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import '../../logic/items/items_bloc.dart';
-import '../../data/models/item.dart';
+import '../../logic/cards/cards_bloc.dart';
+import '../../data/models/responses/card_response.dart';
 
 class CardsListPage extends StatelessWidget {
   const CardsListPage({super.key});
@@ -19,23 +19,12 @@ class CardsListPage extends StatelessWidget {
               const Expanded(
                 child: Text('Cards', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
               ),
-              FilledButton.icon(
-                onPressed: () {
-                  final newItem = Item(
-                    id: DateTime.now().millisecondsSinceEpoch.toString(),
-                    title: 'New card',
-                    subtitle: 'Draft',
-                  );
-                  context.push('/items/${newItem.id}/edit', extra: newItem);
-                },
-                icon: const Icon(Icons.add),
-                label: const Text('New'),
-              ),
+              const SizedBox.shrink(),
             ],
           ),
           const SizedBox(height: 12),
           Expanded(
-            child: BlocBuilder<ItemsBloc, ItemsState>(
+            child: BlocBuilder<CardsBloc, CardsState>(
               builder: (context, state) {
                 if (state.loading) {
                   return const Center(child: CircularProgressIndicator());
@@ -72,13 +61,13 @@ class CardsListPage extends StatelessWidget {
 
 class _CardCard extends StatelessWidget {
   const _CardCard({required this.item});
-  final Item item;
+  final CardResponse item;
 
   @override
   Widget build(BuildContext context) {
     return Card(
       child: InkWell(
-        onTap: () => context.push('/cards/${item.id}'),
+        onTap: () => context.push('/cards/${item.id}', extra: item),
         child: Padding(
           padding: const EdgeInsets.all(12.0),
           child: Row(
@@ -90,8 +79,12 @@ class _CardCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(item.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    Text(item.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Text(
+                      'Type: ${item.type.name}${item.printed ? ' • Printed' : ''}${item.terminated ? ' • Terminated' : ''}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ],
                 ),
               ),
