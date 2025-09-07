@@ -121,6 +121,13 @@ public static class PaymentsEndpoints
             if (uid is null) return Results.Unauthorized();
 
             Guid? assignee = req.Action == VerificationAction.PaymentCreated ? p.UserId : null;
+            // If this is a reversion request, mark payment as awaiting reversion so UI can reflect it
+            if (req.Action == VerificationAction.PaymentReverted)
+            {
+                p.Status = PaymentStatus.AwaitingReversion;
+                p.UpdatedAt = DateTime.UtcNow;
+                await db.SaveChangesAsync();
+            }
             var v = await store.Create(req.Action, req.TargetId, uid.Value, assignee);
             return Results.Created($"/payments/verifications/{v.Id}", v);
         }).RequirePermission(UserPermissions.CreatePayments);
@@ -206,6 +213,10 @@ public static class PaymentsEndpoints
             }
             else if (v.Action == VerificationAction.PaymentReverted)
             {
+                // mark as awaiting reversion until wallet event result
+                p.Status = PaymentStatus.AwaitingReversion;
+                p.UpdatedAt = DateTime.UtcNow;
+                await db.SaveChangesAsync();
                 try
                 {
                     var client = http.RequestServices.GetRequiredService<IHttpClientFactory>().CreateClient("wallet");
@@ -227,7 +238,7 @@ public static class PaymentsEndpoints
                     var body = await res.Content.ReadAsStringAsync();
 
                     v = await store.Decide(id, res.IsSuccessStatusCode ? VerificationStatus.Completed : VerificationStatus.Rejected);
-                    p.Status = res.IsSuccessStatusCode ? PaymentStatus.Confirmed : PaymentStatus.Rejected;
+                    p.Status = res.IsSuccessStatusCode ? PaymentStatus.Reverted : PaymentStatus.ReversionRejected;
 
                     p.UpdatedAt = DateTime.UtcNow;
                     await db.SaveChangesAsync();
@@ -238,7 +249,7 @@ public static class PaymentsEndpoints
                 catch (Exception ex)
                 {
                     v = await store.Decide(id, VerificationStatus.Rejected);
-                    p.Status = PaymentStatus.Rejected;
+                    p.Status = PaymentStatus.ReversionRejected;
                     p.UpdatedAt = DateTime.UtcNow;
                     await db.SaveChangesAsync();
                     return Results.BadRequest("Failed to publish revert wallet event: " + ex.Message);

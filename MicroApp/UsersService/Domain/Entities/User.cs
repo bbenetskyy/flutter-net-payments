@@ -16,6 +16,9 @@ public sealed class User
     public string? DobHash { get; set; }           // YYYY-MM-DD -> хеш
     public string? HashSalt { get; set; }          // унікальна сіль на користувача
 
+    // Soft delete flag
+    public bool IsDeleted { get; set; } = false;
+
     // Ролі/права
     public Guid RoleId { get; set; }
     public Role Role { get; set; } = default!;

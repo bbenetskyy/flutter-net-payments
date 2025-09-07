@@ -6,7 +6,10 @@ public enum PaymentStatus
 {
     Pending = 0,
     Confirmed = 1,
-    Rejected = 2
+    Rejected = 2,
+    AwaitingReversion = 3,
+    Reverted = 4,
+    ReversionRejected = 5,
 }
 
 public class Payment

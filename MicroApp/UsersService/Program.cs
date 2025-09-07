@@ -88,6 +88,7 @@ CREATE TABLE IF NOT EXISTS ""Users"" (
     ""VerificationStatus"" integer NOT NULL DEFAULT 0,
     ""CreatedAt"" timestamptz NOT NULL,
     ""UpdatedAt"" timestamptz NULL,
+    ""IsDeleted"" boolean NOT NULL DEFAULT false,
     CONSTRAINT ""PK_Users"" PRIMARY KEY (""Id"")
 );
 CREATE UNIQUE INDEX IF NOT EXISTS ""IX_Users_Email"" ON ""Users"" (""Email"");
@@ -112,6 +113,18 @@ BEGIN
         WHERE table_name = 'Users' AND column_name = 'VerificationStatus'
     ) THEN
         ALTER TABLE ""Users"" ADD COLUMN ""VerificationStatus"" integer NOT NULL DEFAULT 0;
+    END IF;
+END
+$$;
+
+-- Add IsDeleted column if it doesn't exist (for existing databases)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'Users' AND column_name = 'IsDeleted'
+    ) THEN
+        ALTER TABLE ""Users"" ADD COLUMN ""IsDeleted"" boolean NOT NULL DEFAULT false;
     END IF;
 END
 $$;
@@ -210,7 +223,7 @@ app.MapPost("/internal/users", async (HttpRequest http, UsersDb db, IEmailSender
     if (dto is null) return Results.BadRequest();
 
     // If user already exists by email, return its id (idempotency by email)
-    var existing = await db.Users.FirstOrDefaultAsync(x => x.Email == dto.email.Trim());
+    var existing = await db.Users.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.Email == dto.email.Trim());
     if (existing is not null)
         return Results.Conflict("Email exists");
 

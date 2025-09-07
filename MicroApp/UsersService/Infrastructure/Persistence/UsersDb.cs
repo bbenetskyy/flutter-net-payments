@@ -28,9 +28,11 @@ public class UsersDb(DbContextOptions<UsersDb> options) : DbContext(options)
             e.Property(x => x.PasswordHash).IsRequired().HasMaxLength(200);
             e.Property(x => x.DobHash).HasMaxLength(256);
             e.Property(x => x.HashSalt).HasMaxLength(64);
+            e.Property(x => x.IsDeleted).HasDefaultValue(false);
             e.Property(x => x.OverridePermissions).HasConversion<long>();
             e.Property(x => x.VerificationStatus).HasConversion<int>();
             e.HasOne(x => x.Role).WithMany(r => r.Users).HasForeignKey(x => x.RoleId);
+            e.HasQueryFilter(x => !x.IsDeleted);
         });
     }
 }

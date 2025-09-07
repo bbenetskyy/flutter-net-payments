@@ -33,8 +33,8 @@ public static class UsersEndpoints
                 if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.DisplayName))
                     return Results.BadRequest("Email and DisplayName are required");
 
-                // Check if user already exists
-                var existing = await db.Users.FirstOrDefaultAsync(u => u.Email == req.Email.Trim());
+                // Check if user already exists (including soft-deleted)
+                var existing = await db.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.Email == req.Email.Trim());
                 if (existing is not null) return Results.Conflict("User with this email already exists");
 
                 // Get role or use default
@@ -325,8 +325,10 @@ public static class UsersEndpoints
                 if (remainingManagers == 0)
                     return Results.BadRequest("Cannot delete the last user with ManageCompanyUsers permission.");
 
-                // 4) Hard delete
-                db.Users.Remove(user);
+                
+                // 4) Soft delete
+                user.IsDeleted = true;
+                user.UpdatedAt = DateTime.UtcNow;
                 await db.SaveChangesAsync();
                 return Results.NoContent();
             })
