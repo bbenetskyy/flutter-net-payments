@@ -1,3 +1,4 @@
+using CardsService.Domain.Enums;
 using CardsService.Presentation.Endpoints;
 using Common.Validation;
 
@@ -7,7 +8,7 @@ public sealed class CreateCardRequestValidator : IValidator<CreateCardRequest>
 {
     public ValidationResult Validate(CreateCardRequest input)
     {
-        if (string.IsNullOrWhiteSpace(input.Name))
+        if (string.IsNullOrWhiteSpace(input.Name) && input.Type == CardType.Shared)
             return ValidationResult.Fail("Name is required");
         if (input.SingleTransactionLimit < 0)
             return ValidationResult.Fail("SingleTransactionLimit must be >= 0");

@@ -53,7 +53,7 @@ public static class CardsEndpoints
             var card = await db.Cards.FindAsync(id);
             if (card is null) return Results.NotFound();
 
-            var vop = opValidator.Validate(new CardsService.Application.Validation.AssignCardOperation(card, req));
+            var vop = opValidator.Validate(new(card, req));
             if (!vop.IsValid) return Results.BadRequest(vop.Error);
 
             card.AssignedUserId = req.UserId;
@@ -342,7 +342,7 @@ internal sealed class MeResponse
 
 public record CreateCardRequest(
     CardType Type,
-    string Name,
+    string? Name,
     decimal SingleTransactionLimit,
     decimal MonthlyLimit);
 
