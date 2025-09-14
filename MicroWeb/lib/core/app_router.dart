@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import '../data/models/responses/role_response.dart';
 import '../presentation/pages/dashboard_page.dart';
 import '../presentation/pages/splash_page.dart';
 import '../presentation/pages/sign_in_page.dart';
@@ -42,7 +44,7 @@ class AppRouter {
               state.matchedLocation == '/signin' ||
               state.matchedLocation == '/signup' ||
               state.matchedLocation == '/registration-success';
-          if (authState.status == AuthStatus.unknown) return '/';
+          if (authState.status == AuthStatus.unknown) return '/signin';
           if (authState.status == AuthStatus.unauthenticated) {
             return isLoggingIn ? null : '/signin';
           }
@@ -115,9 +117,12 @@ class AppRouter {
               GoRoute(
                 path: '/users/:id',
                 builder: (ctx, st) {
-                  final user = st.extra as UserResponse?;
-                  if (user == null) return const NotFoundPage();
-                  return UserDetailPage(user: user);
+                  //extra: {user, roles}
+                  final extras = st.extra as LinkedHashSet<Object>;
+                  final user = extras.first as UserResponse?;
+                  final roles = extras.last as List<RoleResponse>?;
+                  if (user == null || roles == null) return const NotFoundPage();
+                  return UserDetailPage(user: user, roles: roles);
                 },
               ),
               GoRoute(path: '/settings', builder: (_, __) => const SettingsPage()),

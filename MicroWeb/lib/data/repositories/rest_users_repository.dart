@@ -8,6 +8,7 @@ import '../models/requests/update_role_request.dart';
 import '../models/requests/update_user_request.dart';
 import '../models/users_verification_decision_request.dart';
 import '../models/verification_decision_request.dart';
+import '../models/responses/role_response.dart';
 import '../services/api_client.dart';
 import 'users_repository.dart';
 
@@ -76,5 +77,11 @@ class RestUsersRepository implements UsersRepository {
   @override
   Future<void> verificationDecision(String verificationId, VerificationDecisionRequest request) async {
     await _api.post('/verifications/$verificationId/decision', body: request.toJson());
+  }
+
+  @override
+  Future<List<RoleResponse>> listRoles({Map<String, dynamic>? query}) async {
+    final data = await _api.get('/roles', query: query);
+    return RoleResponse.listFromJson(data);
   }
 }

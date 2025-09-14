@@ -12,6 +12,20 @@ import '../user_permissions.dart';
 
 part 'role_response.g.dart';
 
+// Custom converters for UserPermissions flags on responses
+Set<UserPermissions> _permissionsFromJson(Object? json) {
+  final intMask = switch (json) {
+    int v => v,
+    String s => int.tryParse(s) ?? 0,
+    _ => 0,
+  };
+  return UserPermissionsConverter.fromBitMask(intMask);
+}
+
+Object _permissionsToJson(Set<UserPermissions> value) {
+  return UserPermissionsConverter.toBitMask(value);
+}
+
 @JsonSerializable(checked: true, createToJson: true, disallowUnrecognizedKeys: false, explicitToJson: true)
 class RoleResponse {
   /// Returns a new [RoleResponse] instance.
@@ -29,8 +43,15 @@ class RoleResponse {
   @JsonKey(name: r'name', required: true, includeIfNull: false)
   final String name;
 
-  @JsonKey(name: r'permissions', required: true, includeIfNull: false)
-  final UserPermissions permissions;
+  // Flags set parsed from backend bitmask
+  @JsonKey(
+    name: r'permissions',
+    required: true,
+    includeIfNull: false,
+    fromJson: _permissionsFromJson,
+    toJson: _permissionsToJson,
+  )
+  final Set<UserPermissions> permissions;
 
   @JsonKey(name: r'createdAt', required: true, includeIfNull: false)
   final DateTime createdAt;

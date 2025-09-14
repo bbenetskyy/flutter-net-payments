@@ -5,6 +5,7 @@ import '../models/requests/create_verification_request.dart';
 import '../models/requests/update_role_request.dart';
 import '../models/requests/update_user_request.dart';
 import '../models/responses/user_response.dart';
+import '../models/responses/role_response.dart';
 import '../models/users_verification_decision_request.dart';
 import '../models/verification_decision_request.dart';
 
@@ -25,6 +26,8 @@ abstract class UsersRepository {
   // Roles
   Future<dynamic> createRole(CreateRoleRequest request);
   Future<dynamic> updateRole(String id, UpdateRoleRequest request);
+  // List roles available in the system
+  Future<List<RoleResponse>> listRoles({Map<String, dynamic>? query});
 
   // Verification & role assignment flows
   Future<void> adminAssignRoleForVerification(String userId, AdminAssignRoleForVerificationRequest request);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import '../../data/models/responses/role_response.dart';
 import '../../logic/users/users_bloc.dart';
 import '../../data/models/responses/user_response.dart';
 import '../../logic/users/users_cubit.dart';
@@ -29,7 +30,7 @@ class UsersListPage extends StatelessWidget {
                 if (state.loading) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                if (state.items.isEmpty) {
+                if (state.users.isEmpty) {
                   return const Center(child: Text('No users yet.'));
                 }
                 return LayoutBuilder(
@@ -42,10 +43,10 @@ class UsersListPage extends StatelessWidget {
                         crossAxisSpacing: 12,
                         mainAxisSpacing: 12,
                       ),
-                      itemCount: state.items.length,
+                      itemCount: state.users.length,
                       itemBuilder: (ctx, i) {
-                        final user = state.items[i];
-                        return _UserCard(user: user);
+                        final user = state.users[i];
+                        return _UserCard(user: user, roles: state.roles);
                       },
                     );
                   },
@@ -60,14 +61,15 @@ class UsersListPage extends StatelessWidget {
 }
 
 class _UserCard extends StatelessWidget {
-  const _UserCard({required this.user});
+  const _UserCard({required this.user, required this.roles});
+  final List<RoleResponse> roles;
   final UserResponse user;
 
   @override
   Widget build(BuildContext context) {
     return Card(
       child: InkWell(
-        onTap: () => context.push('/users/${user.id}', extra: user),
+        onTap: () => context.push('/users/${user.id}', extra: {user, roles}),
         child: Padding(
           padding: const EdgeInsets.all(12.0),
           child: Row(

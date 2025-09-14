@@ -20,8 +20,9 @@ class UsersBloc extends Bloc<UsersEvent, UsersState> {
     try {
       final me = await _repo.getMe();
       final list = await _repo.listUsers();
+      final roles = await _repo.listRoles();
       list.removeWhere((u) => (u.id != null && u.id == me.id));
-      emit(state.copyWith(loading: false, items: list, error: null));
+      emit(state.copyWith(loading: false, users: list, error: null, roles: roles));
     } catch (e) {
       emit(state.copyWith(loading: false, error: e.toString()));
     }

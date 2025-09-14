@@ -4,9 +4,16 @@ import 'package:go_router/go_router.dart';
 import '../../logic/auth/auth_bloc.dart';
 import '../../logic/theme/theme_cubit.dart';
 
-class AppScaffold extends StatelessWidget {
+class AppScaffold extends StatefulWidget {
   const AppScaffold({super.key, required this.child});
   final Widget child;
+
+  @override
+  State<AppScaffold> createState() => _AppScaffoldState();
+}
+
+class _AppScaffoldState extends State<AppScaffold> {
+  int _selectedIndex = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -81,7 +88,7 @@ class AppScaffold extends StatelessWidget {
         children: [
           if (MediaQuery.of(context).size.width >= 1100)
             NavigationRail(
-              selectedIndex: 0,
+              selectedIndex: _selectedIndex,
               onDestinationSelected: (i) {
                 switch (i) {
                   case 0:
@@ -97,6 +104,9 @@ class AppScaffold extends StatelessWidget {
                     context.go('/settings');
                     break;
                 }
+                setState(() {
+                  _selectedIndex = i;
+                });
               },
               destinations: const [
                 NavigationRailDestination(icon: Icon(Icons.account_balance_wallet_outlined), label: Text('Payments')),
@@ -105,7 +115,7 @@ class AppScaffold extends StatelessWidget {
                 NavigationRailDestination(icon: Icon(Icons.settings_outlined), label: Text('Settings')),
               ],
             ),
-          Expanded(child: child),
+          Expanded(child: widget.child),
         ],
       ),
     );
