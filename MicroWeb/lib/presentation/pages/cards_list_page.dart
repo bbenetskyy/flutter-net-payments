@@ -32,7 +32,7 @@ Widget _buildOptionsWrap(CardResponse card) {
     spacing: 8,
     runSpacing: 8,
     children: all.map((o) {
-      final bool active = (card.options == o);
+      final bool active = card.options?.contains(o) ?? false;
       final color = active ? Colors.black87 : Colors.grey;
       return Icon(_optionIcon(o), size: 18, color: color);
     }).toList(),

@@ -75,36 +75,15 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<PaymentsDb>();
     await db.Database.EnsureCreatedAsync();
 
-    var createSql = @"
-CREATE TABLE IF NOT EXISTS ""Payments"" (
-    ""Id"" uuid NOT NULL,
-    ""UserId"" uuid NOT NULL,
-    ""BeneficiaryName"" character varying(200) NOT NULL,
-    ""BeneficiaryAccount"" character varying(64) NOT NULL,
-    ""FromAccount"" character varying(64) NOT NULL,
-    ""Amount"" numeric(18,2) NOT NULL,
-    ""Currency"" character varying(3) NOT NULL,
-    ""FromCurrency"" character varying(3) NOT NULL DEFAULT 'EUR',
-    ""BeneficiaryId"" uuid NULL,
-    ""BeneficiaryAccountId"" uuid NULL,
-    ""Details"" text NULL,
-    ""Status"" integer NOT NULL,
-    ""CreatedAt"" timestamptz NOT NULL,
-    ""UpdatedAt"" timestamptz NULL,
-    CONSTRAINT ""PK_Payments"" PRIMARY KEY (""Id"")
-);
--- Ensure required columns exist for existing databases
-ALTER TABLE ""Payments"" ADD COLUMN IF NOT EXISTS ""FromCurrency"" character varying(3) NOT NULL DEFAULT 'EUR';
-ALTER TABLE ""Payments"" ADD COLUMN IF NOT EXISTS ""BeneficiaryId"" uuid NULL;
-ALTER TABLE ""Payments"" ADD COLUMN IF NOT EXISTS ""BeneficiaryAccountId"" uuid NULL;
-
--- Create indexes (after ensuring columns exist)
-CREATE INDEX IF NOT EXISTS ""IX_Payments_UserId"" ON ""Payments"" (""UserId"");
-CREATE INDEX IF NOT EXISTS ""IX_Payments_BeneficiaryId"" ON ""Payments"" (""BeneficiaryId"");
-CREATE INDEX IF NOT EXISTS ""IX_Payments_BeneficiaryAccountId"" ON ""Payments"" (""BeneficiaryAccountId"");
-
-";
-    await db.Database.ExecuteSqlRawAsync(createSql);
+    try
+    {
+        await db.Database.ExecuteSqlRawAsync(SqlCreateScript.Script);
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[PaymentsService] Schema bootstrap failed: {ex.Message}");
+        throw;
+    }
 }
 
 if (app.Environment.IsDevelopment())

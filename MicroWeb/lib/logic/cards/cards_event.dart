@@ -29,6 +29,19 @@ class CardTerminationRequested extends CardsEvent {
   final Completer<void> completer;
 }
 
+class CardPrintRequested extends CardsEvent {
+  const CardPrintRequested(this.id, this.completer);
+  final String id;
+  final Completer<void> completer;
+}
+
+class CardUpdateRequested extends CardsEvent {
+  const CardUpdateRequested(this.id, this.request, this.completer);
+  final String id;
+  final UpdateCardRequest request;
+  final Completer<CardResponse?> completer;
+}
+
 class UsersLoadRequested extends CardsEvent {
   const UsersLoadRequested();
 }

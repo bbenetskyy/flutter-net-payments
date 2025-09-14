@@ -79,7 +79,7 @@ app.MapPost("/auth/login", async (LoginDto dto, IConfiguration cfg, IHttpClientF
 {
     var cli = http.CreateClient("users");
     var payload = new { email = dto.Email.Trim(), password = dto.Password };
-    var req = new HttpRequestMessage(HttpMethod.Post, "/internal/auth/verify")
+    var req = new HttpRequestMessage(HttpMethod.Post, "/i ")
     {
         Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
     };

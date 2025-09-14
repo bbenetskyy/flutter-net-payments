@@ -42,8 +42,9 @@ class CardResponse {
   @JsonKey(name: r'assignedUserId', required: false, includeIfNull: false)
   final String? assignedUserId;
 
-  @JsonKey(name: r'options', required: true, includeIfNull: false)
-  final CardOptions options;
+  // Flagged options: backend sends combined int. Parse into Set<CardOptions>.
+  @JsonKey(name: r'options', required: true, includeIfNull: false, fromJson: optionsFromJson, toJson: optionsToJson)
+  final Set<CardOptions>? options;
 
   @JsonKey(name: r'printed', required: true, includeIfNull: false)
   final bool printed;

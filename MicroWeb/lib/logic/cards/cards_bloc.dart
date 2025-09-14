@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:micro_web/data/models/requests/assign_card_request.dart';
 import 'package:micro_web/data/models/requests/create_card_request.dart';
+import 'package:micro_web/data/models/requests/update_card_request.dart';
 
 import '../../data/models/responses/card_response.dart';
 import '../../data/models/responses/user_response.dart';
@@ -21,6 +22,8 @@ class CardsBloc extends Bloc<CardsEvent, CardsState> {
     on<UsersLoadRequested>(_onUsersLoad);
     on<CardAssignRequested>(_onAssign);
     on<CardTerminationRequested>(_onTerminate);
+    on<CardUpdateRequested>(_onUpdate);
+    on<CardPrintRequested>(_onPrint);
   }
 
   final CardsRepository _repo;
@@ -63,6 +66,18 @@ class CardsBloc extends Bloc<CardsEvent, CardsState> {
     }
   }
 
+  Future<void> _onPrint(CardPrintRequested event, Emitter<CardsState> emit) async {
+    emit(state.copyWith(loading: true, error: null));
+    try {
+      await _repo.updateCard(event.id, UpdateCardRequest(printed: true));
+      emit(state.copyWith(loading: false, error: null));
+      event.completer.complete();
+    } catch (e) {
+      emit(state.copyWith(loading: false, error: e.toString()));
+      event.completer.completeError(e);
+    }
+  }
+
   Future<void> _onAssign(CardAssignRequested event, Emitter<CardsState> emit) async {
     emit(state.copyWith(loading: true, error: null));
     try {
@@ -96,5 +111,43 @@ class CardsBloc extends Bloc<CardsEvent, CardsState> {
     final completer = Completer<void>();
     add(CardAssignRequested(cardId, selectedUserId, completer));
     return completer.future;
+  }
+
+  Future<CardResponse?> update(String id, UpdateCardRequest request) {
+    final completer = Completer<CardResponse?>();
+    add(CardUpdateRequested(id, request, completer));
+    return completer.future;
+  }
+
+  Future<void> terminate(String id) async {
+    final completer = Completer<void>();
+    add(CardTerminationRequested(id, completer));
+    return completer.future;
+  }
+
+  Future<void> printCard(String id) async {
+    final completer = Completer<void>();
+    add(CardPrintRequested(id, completer));
+    return completer.future;
+  }
+
+  Future<void> _onUpdate(CardUpdateRequested event, Emitter<CardsState> emit) async {
+    emit(state.copyWith(loading: true, error: null));
+    try {
+      final data = await _repo.updateCard(event.id, event.request);
+      final card = CardResponse.fromJson(Map<String, dynamic>.from(data["card"] as Map));
+      final updatedItems = [...state.items];
+      final idx = updatedItems.indexWhere((e) => e.id == card.id);
+      if (idx == -1) {
+        updatedItems.add(card);
+      } else {
+        updatedItems[idx] = card;
+      }
+      emit(state.copyWith(loading: false, items: updatedItems, error: null));
+      event.completer.complete(card);
+    } catch (e) {
+      emit(state.copyWith(loading: false, error: e.toString()));
+      event.completer.completeError(e);
+    }
   }
 }

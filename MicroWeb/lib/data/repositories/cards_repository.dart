@@ -15,5 +15,4 @@ abstract class CardsRepository {
   // Actions
   Future<void> assignCard(String id, AssignCardRequest request);
   Future<void> topUpCard(String id, TopUpRequest request);
-
 }

@@ -64,36 +64,16 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<CardsDb>();
     await db.Database.EnsureCreatedAsync();
-
-    // Idempotent schema bootstrap for PostgreSQL when DB already exists (no EF migrations used)
-    var createSql = @"
-CREATE TABLE IF NOT EXISTS ""Cards"" (
-    ""Id"" uuid NOT NULL,
-    ""Type"" integer NOT NULL,
-    ""Name"" character varying(200) NOT NULL,
-    ""SingleTransactionLimit"" numeric(18,2) NOT NULL,
-    ""MonthlyLimit"" numeric(18,2) NOT NULL,
-    ""AssignedUserId"" uuid NULL,
-    ""Options"" bigint NOT NULL,
-    ""Printed"" boolean NOT NULL DEFAULT FALSE,
-    ""Terminated"" boolean NOT NULL DEFAULT FALSE,
-    ""CreatedAt"" timestamptz NOT NULL,
-    ""UpdatedAt"" timestamptz NULL,
-    CONSTRAINT ""PK_Cards"" PRIMARY KEY (""Id"")
-);
-CREATE INDEX IF NOT EXISTS ""IX_Cards_AssignedUserId"" ON ""Cards"" (""AssignedUserId"");
-";
-
-    var alterSql = @"
--- Add column if missing, ensure default + NOT NULL
-ALTER TABLE IF EXISTS ""Cards""
-    ADD COLUMN IF NOT EXISTS ""Terminated"" boolean DEFAULT FALSE;
-UPDATE ""Cards"" SET ""Terminated"" = FALSE WHERE ""Terminated"" IS NULL;
-ALTER TABLE IF EXISTS ""Cards"" ALTER COLUMN ""Terminated"" SET NOT NULL;
-";
-
-    await db.Database.ExecuteSqlRawAsync(createSql);
-    await db.Database.ExecuteSqlRawAsync(alterSql);
+    
+    try
+    {
+        await db.Database.ExecuteSqlRawAsync(SqlCreateScript.Script);
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[CardsService] Schema bootstrap failed: {ex.Message}");
+        throw;
+    }
 }
 
 if (app.Environment.IsDevelopment())

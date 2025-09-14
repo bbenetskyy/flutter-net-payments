@@ -78,49 +78,9 @@ using (var scope = app.Services.CreateScope())
     // Ensure database exists without migrations
     await db.Database.EnsureCreatedAsync();
 
-    var createSql = @"
-CREATE TABLE IF NOT EXISTS ""Wallets"" (
-    ""Id"" uuid NOT NULL,
-    ""UserId"" uuid NOT NULL,
-    ""CreatedAt"" timestamptz NOT NULL DEFAULT now(),
-    CONSTRAINT ""PK_Wallets"" PRIMARY KEY (""Id"")
-);
-
-CREATE UNIQUE INDEX IF NOT EXISTS ""UX_Wallets_UserId""
-ON ""Wallets"" (""UserId"");
-
-CREATE TABLE IF NOT EXISTS ""LedgerEntries"" (
-    ""Id"" uuid NOT NULL,
-    ""WalletId"" uuid NOT NULL,
-    ""AmountMinor"" bigint NOT NULL,
-    ""Currency"" character varying(3) NOT NULL DEFAULT 'EUR',
-    ""Type"" integer NOT NULL,
-    ""Account"" integer NOT NULL DEFAULT 1,
-    ""CounterpartyAccount"" integer NOT NULL DEFAULT 2,
-    ""Description"" text NULL,
-    ""CorrelationId"" uuid NOT NULL,
-    ""CreatedAt"" timestamptz NOT NULL DEFAULT now(),
-    CONSTRAINT ""PK_LedgerEntries"" PRIMARY KEY (""Id""),
-    CONSTRAINT ""FK_LedgerEntries_Wallets_WalletId""
-        FOREIGN KEY (""WalletId"") REFERENCES ""Wallets"" (""Id"") ON DELETE CASCADE
-);
-
--- Accounts table for multi-IBAN per user
-CREATE TABLE IF NOT EXISTS ""Accounts"" (
-    ""Id"" uuid NOT NULL,
-    ""UserId"" uuid NOT NULL,
-    ""Iban"" character varying(64) NOT NULL,
-    ""Currency"" character varying(3) NOT NULL DEFAULT 'EUR',
-    ""CreatedAt"" timestamptz NOT NULL DEFAULT now(),
-    CONSTRAINT ""PK_Accounts"" PRIMARY KEY (""Id"")
-);
--- Enforce global uniqueness of IBAN across all users
-CREATE UNIQUE INDEX IF NOT EXISTS ""UX_Accounts_Iban"" ON ""Accounts"" (""Iban"");
-";
-
     try
     {
-        await db.Database.ExecuteSqlRawAsync(createSql);
+        await db.Database.ExecuteSqlRawAsync(SqlCreateScript.Script);
         Console.WriteLine("[WalletService] Schema bootstrap executed: Wallets, LedgerEntries, Accounts ensured.");
     }
     catch (Exception ex)
