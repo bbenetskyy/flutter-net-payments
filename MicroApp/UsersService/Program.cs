@@ -1,9 +1,6 @@
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 using Common.Infrastucture.Persistence;
 using Common.Security;
 using Common.Validation;
-using MicroApp.UsersService;
 using MicroApp.UsersService.Application;
 using MicroApp.UsersService.Application.DTOs;
 using MicroApp.UsersService.Application.Validation;
@@ -87,7 +84,7 @@ using (var scope = app.Services.CreateScope())
             var role = await db.Roles.FirstOrDefaultAsync(r => r.Name == "CEO")
                        ?? await db.Roles.FirstAsync(); // fallback to any role if CEO not found
             var pepper = builder.Configuration["Security:HashPepper"] ?? string.Empty;
-            var (hash, salt) = Common.Security.Hashing.HashSecret(adminPassword, null, pepper);
+            var (hash, salt) = Hashing.HashSecret(adminPassword, null, pepper);
             var admin = new User
             {
                 Id = Guid.NewGuid(),

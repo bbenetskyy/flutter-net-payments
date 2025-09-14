@@ -266,7 +266,7 @@ public static class UserEndpoints
                 // If new password provided, set it now
                 if (!string.IsNullOrWhiteSpace(req.NewPassword))
                 {
-                    var (newHash, newSalt) = Common.Security.Hashing.HashSecret(req.NewPassword, null, pepper);
+                    var (newHash, newSalt) = Hashing.HashSecret(req.NewPassword, null, pepper);
                     user.PasswordHash = newHash;
                     user.HashSalt = newSalt;
                 }

@@ -1,5 +1,4 @@
 using Common.Security;
-using Common.Validation;
 
 namespace MicroApp.UsersService.Domain.Entities;
 
