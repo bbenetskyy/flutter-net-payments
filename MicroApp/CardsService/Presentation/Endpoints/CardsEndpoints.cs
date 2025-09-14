@@ -2,12 +2,11 @@ using CardsService.Domain.Entities;
 using CardsService.Domain.Enums;
 using CardsService.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Authorization;
 using CardsService.Presentation.Security;
 
 using System.Security.Claims;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
+using CardsService.Application.DTOs;
 using CardsService.Application.Validation;
 using Common.Domain.Entities;
 using Common.Infrastucture.Persistence;
@@ -93,7 +92,7 @@ public static class CardsEndpoints
 
             card.UpdatedAt = DateTime.UtcNow;
             await db.SaveChangesAsync();
-            VerificationDto? verification = null;
+            VerificationResponse? verification = null;
 
             
             // 🔔 Example trigger: when someone requests printing (false -> true)
@@ -314,7 +313,7 @@ public static class CardsEndpoints
         return null;
     }
 
-    private static CardDto ToDto(Card c) => new(
+    private static CardResponse ToDto(Card c) => new(
         c.Id, c.Type, c.Name, c.SingleTransactionLimit, c.MonthlyLimit, c.AssignedUserId, c.Options,
         c.Printed, c.Terminated ,c.CreatedAt, c.UpdatedAt);
 
@@ -339,45 +338,3 @@ public static class CardsEndpoints
         return me;
     }
 }
-
-internal sealed class MeResponse
-{
-    public Guid Id { get; set; }
-    public string DisplayName { get; set; } = null!;
-    public long EffectivePermissions { get; set; }
-}
-
-public record CreateCardRequest(
-    CardType Type,
-    string? Name,
-    decimal SingleTransactionLimit,
-    decimal MonthlyLimit);
-
-public record AssignCardRequest(Guid UserId);
-
-public record UpdateCardRequest(
-    CardType? Type,
-    string? Name,
-    decimal? SingleTransactionLimit,
-    decimal? MonthlyLimit,
-    CardOptions? Options,
-    bool? Printed,
-    Guid? AssignedUserId
-)
-{
-    public bool AssignedUserIdSet => AssignedUserId.HasValue;
-}
-
-public record CardDto(
-    Guid Id,
-    CardType Type,
-    string Name,
-    decimal SingleTransactionLimit,
-    decimal MonthlyLimit,
-    Guid? AssignedUserId,
-    CardOptions Options,
-    bool Printed,
-    bool Terminated,
-    DateTime CreatedAt,
-    DateTime? UpdatedAt
-);

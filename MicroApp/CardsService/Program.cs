@@ -1,4 +1,4 @@
-using System.Security.Claims;
+using CardsService.Application.DTOs;
 using Common.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;

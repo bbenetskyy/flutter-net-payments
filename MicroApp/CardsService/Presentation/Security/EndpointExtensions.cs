@@ -1,5 +1,4 @@
 using Common.Security;
-using Microsoft.AspNetCore.Builder;
 
 namespace CardsService.Presentation.Security;
 

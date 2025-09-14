@@ -5,7 +5,7 @@ namespace CardsService.Infrastructure.Persistence;
 
 public interface ICardVerificationService
 {
-    Task<VerificationDto> CreateForAssignmentAsync(Guid cardId, ClaimsPrincipal user);
-    Task<VerificationDto> CreateForPrintingAsync(Guid cardId, ClaimsPrincipal user);
-    Task<VerificationDto> CreateForTerminationAsync(Guid cardId, ClaimsPrincipal user);
+    Task<VerificationResponse> CreateForAssignmentAsync(Guid cardId, ClaimsPrincipal user);
+    Task<VerificationResponse> CreateForPrintingAsync(Guid cardId, ClaimsPrincipal user);
+    Task<VerificationResponse> CreateForTerminationAsync(Guid cardId, ClaimsPrincipal user);
 }

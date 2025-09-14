@@ -1,6 +1,5 @@
 using CardsService.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
-using CardsService.Domain.Enums;
 
 namespace CardsService.Infrastructure.Persistence;
 

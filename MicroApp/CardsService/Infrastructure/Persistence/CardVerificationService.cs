@@ -15,16 +15,16 @@ public sealed class CardVerificationService : ICardVerificationService
         _store = store;
     }
 
-    public async Task<VerificationDto> CreateForAssignmentAsync(Guid cardId, ClaimsPrincipal user)
+    public async Task<VerificationResponse> CreateForAssignmentAsync(Guid cardId, ClaimsPrincipal user)
         => await CreateAsync(cardId, user, VerificationAction.UserAssignedToCard, requireAssignee:true);
 
-    public async Task<VerificationDto> CreateForPrintingAsync(Guid cardId, ClaimsPrincipal user)
+    public async Task<VerificationResponse> CreateForPrintingAsync(Guid cardId, ClaimsPrincipal user)
         => await CreateAsync(cardId, user, VerificationAction.CardPrinting, requireAssignee:false);
 
-    public async Task<VerificationDto> CreateForTerminationAsync(Guid cardId, ClaimsPrincipal user)
+    public async Task<VerificationResponse> CreateForTerminationAsync(Guid cardId, ClaimsPrincipal user)
         => await CreateAsync(cardId, user, VerificationAction.CardTermination, requireAssignee:false);
 
-    private async Task<VerificationDto> CreateAsync(Guid cardId, ClaimsPrincipal user,
+    private async Task<VerificationResponse> CreateAsync(Guid cardId, ClaimsPrincipal user,
         VerificationAction action, bool requireAssignee)
     {
         var card = await _db.Cards.AsNoTracking().FirstOrDefaultAsync(c => c.Id == cardId);

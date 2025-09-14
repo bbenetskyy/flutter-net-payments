@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using WalletService.Domain.Entities;
-using Common.Domain.Entities;
 
 namespace WalletService.Infrastructure.Persistence;
 
