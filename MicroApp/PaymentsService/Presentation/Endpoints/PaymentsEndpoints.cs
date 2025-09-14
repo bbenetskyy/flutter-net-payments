@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -13,7 +12,7 @@ using Common.Validation;
 using Common.Domain.Enums;
 using Common.Infrastucture.Persistence;
 using Common.Security;
-using Microsoft.AspNetCore.Http.HttpResults;
+using PaymentsService.Application.DTOs;
 
 namespace PaymentsService.Presentation.Endpoints;
 
@@ -188,7 +187,7 @@ public static class PaymentsEndpoints
                         BeneficiaryId = p.BeneficiaryId!.Value, // payee
                         AmountMinor = amountMinor,
                         Currency = p.Currency,
-                        EventType = Common.Domain.Enums.PaymentEventType.PaymentCaptured,
+                        EventType = PaymentEventType.PaymentCaptured,
                         Description = string.IsNullOrWhiteSpace(p.Details) ? $"Payment {p.Id} to {p.BeneficiaryName}" : p.Details
                     };
                     var res = await client.PostAsJsonAsync("/internal/events/payment", evt);
@@ -229,7 +228,7 @@ public static class PaymentsEndpoints
                         BeneficiaryId = p.BeneficiaryId!.Value, // original payee
                         AmountMinor = amountMinor,
                         Currency = p.Currency,
-                        EventType = Common.Domain.Enums.PaymentEventType.RefundSucceeded,
+                        EventType = PaymentEventType.RefundSucceeded,
                         Description = string.IsNullOrWhiteSpace(p.Details)
                             ? $"Reverted payment {p.Id} from {p.BeneficiaryName}"
                             : p.Details
@@ -275,14 +274,14 @@ public static class PaymentsEndpoints
 
         // Create a new payment for current user
         app.MapPost("/payments", async (HttpContext http, ClaimsPrincipal user, 
-            CreatePaymentRequest req, PaymentsDb db, IVerificationStore store) =>
+            CreatePaymentRequest req, PaymentsDb db, IVerificationStore store, IValidator<CreatePaymentRequest> validator) =>
         {
             var sub = user.FindFirstValue("sub") ?? user.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrWhiteSpace(sub) || !Guid.TryParse(sub, out var uid))
                 return Results.Unauthorized();
 
-            var err = Validate(req);
-            if (err is not null) return Results.BadRequest(err);
+            var vr = validator.Validate(req);
+            if (!vr.IsValid) return Results.BadRequest(vr.Error);
 
             var fromIban = req.FromAccount.Trim();
             var client = http.RequestServices.GetRequiredService<IHttpClientFactory>().CreateClient("wallet");
@@ -293,7 +292,7 @@ public static class PaymentsEndpoints
             using var accountsRes = await client.GetAsync("/accounts/my");
             if (!accountsRes.IsSuccessStatusCode)
                 return Results.BadRequest("Failed to fetch accounts");
-            var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             options.Converters.Add(new JsonStringEnumConverter());
             var accounts = await accountsRes.Content.ReadFromJsonAsync<List<AccountSlim>>(options) ?? new();
             var acc = accounts.FirstOrDefault(a => a.Iban == fromIban);
@@ -363,24 +362,8 @@ public static class PaymentsEndpoints
         }).RequirePermission(UserPermissions.CreatePayments);
     }
 
-    private static string? Validate(CreatePaymentRequest req)
-    {
-        if (string.IsNullOrWhiteSpace(req.BeneficiaryName)) return "Beneficiary name is required";
-        if (string.IsNullOrWhiteSpace(req.BeneficiaryAccount)) return "Beneficiary account (IBAN) is required";
-        if (string.IsNullOrWhiteSpace(req.FromAccount)) return "From account (IBAN) is required";
-        if (req.Amount <= 0) return "Amount must be greater than 0";
-        if (req.BeneficiaryName.Length > 200) return "Beneficiary name too long";
-        if (req.BeneficiaryAccount.Length > 64) return "Beneficiary account too long";
-        if (req.FromAccount.Length > 64) return "From account too long";
-        // IBAN format validation (normalized)
-        var benIban = Common.Security.Hashing.NormalizeIban(req.BeneficiaryAccount);
-        var fromIban = Common.Security.Hashing.NormalizeIban(req.FromAccount);
-        if (!Validation.IsValidIban(benIban)) return "Invalid beneficiary IBAN format";
-        if (!Validation.IsValidIban(fromIban)) return "Invalid from-account IBAN format";
-        return null;
-    }
 
-    private static PaymentDto ToDto(Payment p) => new(
+    private static PaymentResponse ToDto(Payment p) => new(
         p.Id,
         p.UserId,
         p.BeneficiaryName,
@@ -414,7 +397,7 @@ public static class PaymentsEndpoints
 
         using var res = await client.GetAsync("/me");
         if (!res.IsSuccessStatusCode) return null;
-        var me = await res.Content.ReadFromJsonAsync<MeResponse>(new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var me = await res.Content.ReadFromJsonAsync<MeResponse>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         return me;
     }
 }
@@ -425,7 +408,7 @@ internal sealed class AccountSlim
     public Guid UserId { get; set; }
     public string Iban { get; set; } = string.Empty;
     [JsonConverter(typeof(JsonStringEnumConverter))]
-    public Common.Domain.Enums.Currency Currency { get; set; } = Common.Domain.Enums.Currency.EUR;
+    public Currency Currency { get; set; } = Currency.EUR;
     public DateTime CreatedAt { get; set; }
 }
 
@@ -441,28 +424,3 @@ internal sealed class UserListItem
     public string DisplayName { get; set; } = string.Empty;
 }
 
-public record CreatePaymentRequest(
-    string BeneficiaryName,
-    string BeneficiaryAccount,
-    string FromAccount,
-    decimal Amount,
-    Currency? Currency,
-    string? Details
-);
-
-public record PaymentDto(
-    Guid Id,
-    Guid UserId,
-    string BeneficiaryName,
-    string BeneficiaryAccount,
-    Guid? BeneficiaryId,
-    Guid? BeneficiaryAccountId,
-    string FromAccount,
-    decimal Amount,
-    Currency Currency,
-    Currency FromCurrency,
-    string? Details,
-    PaymentStatus Status,
-    DateTime CreatedAt,
-    DateTime? UpdatedAt
-);

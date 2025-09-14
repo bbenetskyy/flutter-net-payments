@@ -1,12 +1,12 @@
 using Common.Domain.Enums;
 
-namespace PaymentsService.Application.Rates;
+namespace PaymentsService.Application;
 
 public sealed class HardcodedExchangeRateService : IExchangeRateService
 {
     // Base rates with EUR as base
     // Example values; in real world this would query an external data source
-    private static readonly Dictionary<Currency, decimal> EurTo = new()
+    private static readonly Dictionary<Common.Domain.Enums.Currency, decimal> EurTo = new()
     {
         { Currency.EUR, 1m },
         { Currency.USD, 1.10m },

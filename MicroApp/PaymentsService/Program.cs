@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using System.Text.Json.Serialization;
 using Common.Infrastucture.Persistence;
 using Common.Security;
@@ -7,8 +6,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using PaymentsService.Infrastructure.Persistence;
 using PaymentsService.Presentation.Endpoints;
-using PaymentsService.Application.Rates;
-using Common.Domain.Enums;
+using PaymentsService.Application;
+using PaymentsService.Application.DTOs;
+using PaymentsService.Application.Validation;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -65,6 +65,8 @@ builder.Services.AddHttpClient("wallet", c =>
 
 // Exchange rates
 builder.Services.AddSingleton<IExchangeRateService, HardcodedExchangeRateService>();
+// Validators
+builder.Services.AddSingleton<IValidator<CreatePaymentRequest>, CreatePaymentRequestValidator>();
 
 var app = builder.Build();
 app.UseSwagger().UseSwaggerUI();
@@ -97,50 +99,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapPaymentsEndpoints();
-
-// Provider webhook receiver -> emits domain events to WalletService
-app.MapPost("/payments/webhooks/provider", async (HttpContext http) =>
-{
-    var payload = await http.Request.ReadFromJsonAsync<ProviderWebhook>();
-    if (payload is null) return Results.BadRequest();
-
-    // Minimal validation
-    if (payload.IntentId == Guid.Empty || payload.UserId == Guid.Empty || payload.Amount <= 0)
-        return Results.BadRequest();
-
-    // Pass-through original currency; compute minor units from payload.Amount (2 decimals)
-    var amountRounded = Math.Round(payload.Amount, 2, MidpointRounding.AwayFromZero);
-    long amountMinor = (long)Math.Round(amountRounded * 100m, 0, MidpointRounding.AwayFromZero);
-
-    var client = http.RequestServices.GetRequiredService<IHttpClientFactory>().CreateClient("wallet");
-    var evt = new WalletEvent
-    {
-        IntentId = payload.IntentId,
-        UserId = payload.UserId,
-        BeneficiaryId = payload.BeneficiaryId,
-        AmountMinor = amountMinor,
-        Currency = payload.Currency,
-        EventType = payload.Type?.ToLowerInvariant()
-                .Replace("_", "")
-                .Replace("-","")
-                .Replace(" ","")
-            switch
-        {
-            "refundsucceeded" => Common.Domain.Enums.PaymentEventType.RefundSucceeded,
-            "chargebackreceived" => Common.Domain.Enums.PaymentEventType.ChargebackReceived,
-            _ => Common.Domain.Enums.PaymentEventType.PaymentCaptured
-        },
-        Description = payload.Description
-    };
-
-    using var res = await client.PostAsJsonAsync("/internal/events/payment", evt);
-    if (!res.IsSuccessStatusCode)
-    {
-        return Results.StatusCode((int)res.StatusCode);
-    }
-
-    return Results.Ok(new { status = "received" });
-});
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
