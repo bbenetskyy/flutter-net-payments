@@ -6,9 +6,9 @@ namespace Common.Validation;
 
 public interface IVerificationStore
 {
-    Task<VerificationDto> Create(VerificationAction action, Guid targetId, Guid createdBy, Guid? assignee);
-    Task<VerificationDto?> Get(Guid id);
-    Task<VerificationDto?> Decide(Guid id, VerificationStatus status);
+    Task<VerificationResponse> Create(VerificationAction action, Guid targetId, Guid createdBy, Guid? assignee);
+    Task<VerificationResponse?> Get(Guid id);
+    Task<VerificationResponse?> Decide(Guid id, VerificationStatus status);
 }
 
 public static class Validation

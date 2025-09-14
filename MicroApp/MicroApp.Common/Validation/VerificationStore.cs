@@ -7,7 +7,7 @@ public sealed class VerificationStore(VerificationsDb db) : IVerificationStore
 {
     private readonly Random rng = new();
 
-    public async Task<VerificationDto> Create(VerificationAction action, Guid targetId, Guid createdBy, Guid? assignee)
+    public async Task<VerificationResponse> Create(VerificationAction action, Guid targetId, Guid createdBy, Guid? assignee)
     {
         var code = rng.Next(100000, 1000000).ToString();
         var verification = new Verification
@@ -26,13 +26,13 @@ public sealed class VerificationStore(VerificationsDb db) : IVerificationStore
         return ToDto(verification);
     }
 
-    public async Task<VerificationDto?> Get(Guid id)
+    public async Task<VerificationResponse?> Get(Guid id)
     {
         var verification = await db.Verifications.FindAsync(id);
         return verification is null ? null : ToDto(verification);
     }
 
-    public async Task<VerificationDto?> Decide(Guid id, VerificationStatus status)
+    public async Task<VerificationResponse?> Decide(Guid id, VerificationStatus status)
     {
         var verification = await db.Verifications.FindAsync(id);
         if (verification is null) return null;
@@ -43,5 +43,5 @@ public sealed class VerificationStore(VerificationsDb db) : IVerificationStore
         return ToDto(verification);
     }
 
-    private static VerificationDto ToDto(Verification v) => new(v.Id, v.Action, v.TargetId, v.Status, v.Code, v.CreatedBy, v.AssigneeUserId, v.CreatedAt, v.DecidedAt);
+    private static VerificationResponse ToDto(Verification v) => new(v.Id, v.Action, v.TargetId, v.Status, v.Code, v.CreatedBy, v.AssigneeUserId, v.CreatedAt, v.DecidedAt);
 }

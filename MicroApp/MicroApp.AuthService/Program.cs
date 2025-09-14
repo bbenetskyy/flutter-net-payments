@@ -1,8 +1,3 @@
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
-using System.Text.Json;
-using AuthService;
 using AuthService.Presentation.Endpoints;
 using Common.Security;
 using Microsoft.IdentityModel.Tokens;

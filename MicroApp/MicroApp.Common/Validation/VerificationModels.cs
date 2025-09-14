@@ -27,7 +27,7 @@ public record VerificationDecisionRequest(
     bool Accept
 );
 
-public record VerificationDto(
+public record VerificationResponse(
     Guid Id,
     VerificationAction Action,
     Guid TargetId,
