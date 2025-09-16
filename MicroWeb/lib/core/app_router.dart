@@ -30,6 +30,10 @@ import '../data/repositories/users_repository.dart';
 import '../data/repositories/accounts_repository.dart';
 import '../logic/users/users_bloc.dart';
 import '../data/models/responses/user_response.dart';
+import '../logic/accounts/accounts_bloc.dart';
+import '../presentation/pages/accounts_list_page.dart';
+import '../presentation/pages/account_detail_page.dart';
+import '../data/models/responses/account_response.dart';
 
 class AppRouter {
   AppRouter({required AuthBloc authBloc})
@@ -70,6 +74,13 @@ class AppRouter {
                     ctx.read<AccountsRepository>(),
                   )..load(),
                   child: const PaymentsListPage(),
+                ),
+              ),
+              GoRoute(
+                path: '/accounts',
+                builder: (context, __) => BlocProvider<AccountsBloc>(
+                  create: (ctx) => AccountsBloc(ctx.read<AccountsRepository>())..load(),
+                  child: const AccountsListPage(),
                 ),
               ),
               GoRoute(
@@ -118,6 +129,17 @@ class AppRouter {
                       return bloc;
                     },
                     child: CardDetailPage(card: card),
+                  );
+                },
+              ),
+              GoRoute(
+                path: '/accounts/:id',
+                builder: (ctx, st) {
+                  final acc = st.extra as AccountResponse?;
+                  if (acc == null) return const NotFoundPage();
+                  return BlocProvider<AccountsBloc>(
+                    create: (c) => AccountsBloc(c.read<AccountsRepository>())..load(),
+                    child: AccountDetailPage(item: acc),
                   );
                 },
               ),
