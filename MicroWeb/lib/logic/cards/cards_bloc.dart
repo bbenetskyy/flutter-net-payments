@@ -58,7 +58,26 @@ class CardsBloc extends Bloc<CardsEvent, CardsState> {
     emit(state.copyWith(loading: true, error: null));
     try {
       await _repo.terminateCard(event.id);
-      emit(state.copyWith(loading: false, error: null));
+      // Optimistically mark the card as terminated in the local state so UI updates immediately
+      final updatedItems = [...state.items];
+      final idx = updatedItems.indexWhere((e) => e.id == event.id);
+      if (idx != -1) {
+        final c = updatedItems[idx];
+        updatedItems[idx] = CardResponse(
+          id: c.id,
+          type: c.type,
+          name: c.name,
+          singleTransactionLimit: c.singleTransactionLimit,
+          monthlyLimit: c.monthlyLimit,
+          assignedUserId: c.assignedUserId,
+          options: c.options,
+          printed: c.printed,
+          terminated: true,
+          createdAt: c.createdAt,
+          updatedAt: DateTime.now(),
+        );
+      }
+      emit(state.copyWith(loading: false, items: updatedItems, error: null));
       event.completer.complete();
     } catch (e) {
       emit(state.copyWith(loading: false, error: e.toString()));
@@ -70,7 +89,26 @@ class CardsBloc extends Bloc<CardsEvent, CardsState> {
     emit(state.copyWith(loading: true, error: null));
     try {
       await _repo.updateCard(event.id, UpdateCardRequest(printed: true));
-      emit(state.copyWith(loading: false, error: null));
+      // Optimistically mark the card as printed in the local state so UI updates immediately
+      final updatedItems = [...state.items];
+      final idx = updatedItems.indexWhere((e) => e.id == event.id);
+      if (idx != -1) {
+        final c = updatedItems[idx];
+        updatedItems[idx] = CardResponse(
+          id: c.id,
+          type: c.type,
+          name: c.name,
+          singleTransactionLimit: c.singleTransactionLimit,
+          monthlyLimit: c.monthlyLimit,
+          assignedUserId: c.assignedUserId,
+          options: c.options,
+          printed: true,
+          terminated: c.terminated,
+          createdAt: c.createdAt,
+          updatedAt: DateTime.now(),
+        );
+      }
+      emit(state.copyWith(loading: false, items: updatedItems, error: null));
       event.completer.complete();
     } catch (e) {
       emit(state.copyWith(loading: false, error: e.toString()));
@@ -82,7 +120,26 @@ class CardsBloc extends Bloc<CardsEvent, CardsState> {
     emit(state.copyWith(loading: true, error: null));
     try {
       await _repo.assignCard(event.id, AssignCardRequest(userId: event.userId));
-      emit(state.copyWith(loading: false, error: null));
+      // Optimistically set assignedUserId in local state so UI updates immediately
+      final updatedItems = [...state.items];
+      final idx = updatedItems.indexWhere((e) => e.id == event.id);
+      if (idx != -1) {
+        final c = updatedItems[idx];
+        updatedItems[idx] = CardResponse(
+          id: c.id,
+          type: c.type,
+          name: c.name,
+          singleTransactionLimit: c.singleTransactionLimit,
+          monthlyLimit: c.monthlyLimit,
+          assignedUserId: event.userId,
+          options: c.options,
+          printed: c.printed,
+          terminated: c.terminated,
+          createdAt: c.createdAt,
+          updatedAt: DateTime.now(),
+        );
+      }
+      emit(state.copyWith(loading: false, items: updatedItems, error: null));
       event.completer.complete();
     } catch (e) {
       emit(state.copyWith(loading: false, error: e.toString()));

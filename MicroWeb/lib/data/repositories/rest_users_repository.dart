@@ -35,18 +35,14 @@ class RestUsersRepository implements UsersRepository {
   }
 
   @override
-  Future<dynamic> updateUser(String id, UpdateUserRequest request) async {
-    return await _api.put('/users/$id', body: request.toJson());
+  Future<UserResponse> updateUser(String id, UpdateUserRequest request) async {
+    final data = await _api.put('/users/$id', body: request.toJson());
+    return UserResponse.fromJson(Map<String, dynamic>.from(data as Map));
   }
 
   @override
   Future<dynamic> adminCreateUser(AdminCreateUserRequest request) async {
-    return await _api.post('/admin/users', body: request.toJson());
-  }
-
-  @override
-  Future<dynamic> adminUpdateUser(String id, UpdateUserRequest request) async {
-    return await _api.put('/admin/users/$id', body: request.toJson());
+    return await _api.post('/users', body: request.toJson());
   }
 
   @override

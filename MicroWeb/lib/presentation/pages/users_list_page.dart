@@ -5,6 +5,7 @@ import '../../data/models/responses/role_response.dart';
 import '../../logic/users/users_bloc.dart';
 import '../../data/models/responses/user_response.dart';
 import '../../logic/users/users_cubit.dart';
+import '../../logic/users/users_event.dart';
 
 class UsersListPage extends StatelessWidget {
   const UsersListPage({super.key});
@@ -69,7 +70,12 @@ class _UserCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: InkWell(
-        onTap: () => context.push('/users/${user.id}', extra: {user, roles}),
+        onTap: () async {
+          final refresh = await context.push('/users/${user.id}', extra: {user, roles});
+          if (refresh == true && context.mounted) {
+            context.read<UsersBloc>().add(const UsersRequested());
+          }
+        },
         child: Padding(
           padding: const EdgeInsets.all(12.0),
           child: Row(

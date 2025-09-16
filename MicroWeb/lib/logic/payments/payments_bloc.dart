@@ -13,6 +13,8 @@ import '../../data/models/responses/user_response.dart';
 import '../../data/repositories/accounts_repository.dart';
 import '../../data/repositories/payments_repository.dart';
 import '../../data/repositories/users_repository.dart';
+import '../../data/models/requests/create_verification_request.dart';
+import '../../data/models/verification_action.dart';
 
 class PaymentsBloc extends Bloc<PaymentsEvent, PaymentsState> {
   PaymentsBloc(this._repo, this._usersRepo, this._accountsRepo) : super(const PaymentsState()) {
@@ -20,6 +22,7 @@ class PaymentsBloc extends Bloc<PaymentsEvent, PaymentsState> {
     on<PaymentsPrefetchRequested>(_onPrefetch);
     on<BeneficiaryAccountsRequested>(_onBeneficiaryAccounts);
     on<PaymentCreateRequested>(_onCreate);
+    on<PaymentRevertRequested>(_onRevert);
   }
 
   final PaymentsRepository _repo;
@@ -33,6 +36,12 @@ class PaymentsBloc extends Bloc<PaymentsEvent, PaymentsState> {
   Future<PaymentResponse?> create(CreatePaymentRequest request) {
     final completer = Completer<PaymentResponse?>();
     add(PaymentCreateRequested(request, completer));
+    return completer.future;
+  }
+
+  Future<void> revert(String paymentId) {
+    final completer = Completer<void>();
+    add(PaymentRevertRequested(paymentId, completer));
     return completer.future;
   }
 
@@ -92,6 +101,41 @@ class PaymentsBloc extends Bloc<PaymentsEvent, PaymentsState> {
     } catch (e) {
       emit(state.copyWith(submitting: false, submitError: e.toString()));
       event.completer.complete(null);
+    }
+  }
+
+  Future<void> _onRevert(PaymentRevertRequested event, Emitter<PaymentsState> emit) async {
+    emit(state.copyWith(submitting: true, submitError: null));
+    try {
+      final req = CreateVerificationRequest(action: VerificationAction.PaymentReverted, targetId: event.paymentId);
+      await _repo.createPaymentVerification(req);
+      // Optimistically update payment status so list and details reflect immediately
+      final updatedItems = [...state.items];
+      final idx = updatedItems.indexWhere((e) => e.id == event.paymentId);
+      if (idx != -1) {
+        final p = updatedItems[idx];
+        updatedItems[idx] = PaymentResponse(
+          id: p.id,
+          userId: p.userId,
+          beneficiaryName: p.beneficiaryName,
+          beneficiaryAccount: p.beneficiaryAccount,
+          beneficiaryId: p.beneficiaryId,
+          beneficiaryAccountId: p.beneficiaryAccountId,
+          fromAccount: p.fromAccount,
+          amount: p.amount,
+          currency: p.currency,
+          fromCurrency: p.fromCurrency,
+          details: p.details,
+          status: 'AwaitingReversion',
+          createdAt: p.createdAt,
+          updatedAt: DateTime.now(),
+        );
+      }
+      emit(state.copyWith(submitting: false, items: updatedItems));
+      event.completer.complete();
+    } catch (e) {
+      emit(state.copyWith(submitting: false, submitError: e.toString()));
+      event.completer.completeError(e);
     }
   }
 }

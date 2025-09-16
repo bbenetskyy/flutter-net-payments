@@ -1,3 +1,5 @@
+import 'package:micro_web/data/models/user.dart';
+
 import '../models/requests/admin_assign_role_for_verification_request.dart';
 import '../models/requests/admin_create_user_request.dart';
 import '../models/requests/create_role_request.dart';
@@ -17,11 +19,10 @@ abstract class UsersRepository {
   Future<UserResponse> getMe();
   Future<List<UserResponse>> listUsers({Map<String, dynamic>? query});
   Future<dynamic> getUserById(String id);
-  Future<dynamic> updateUser(String id, UpdateUserRequest request);
+  Future<UserResponse> updateUser(String id, UpdateUserRequest request);
 
   // Admin users
   Future<dynamic> adminCreateUser(AdminCreateUserRequest request);
-  Future<dynamic> adminUpdateUser(String id, UpdateUserRequest request);
 
   // Roles
   Future<dynamic> createRole(CreateRoleRequest request);

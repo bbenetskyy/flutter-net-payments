@@ -122,7 +122,12 @@ class _CardCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: InkWell(
-        onTap: () => context.push('/cards/${item.id}', extra: item),
+        onTap: () async {
+          var refresh = await context.push('/cards/${item.id}', extra: item);
+          if (refresh == true && context.mounted) {
+            context.read<CardsBloc>().add(const CardsRequested());
+          }
+        },
         child: Padding(
           padding: const EdgeInsets.all(12.0),
           child: Row(

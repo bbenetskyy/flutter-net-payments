@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import '../../data/models/requests/create_verification_request.dart';
-import '../../data/models/verification_action.dart';
-import '../../data/repositories/payments_repository.dart';
+import '../../logic/payments/payments_bloc.dart';
 import '../../data/models/responses/payment_response.dart';
 
 Color _statusColor(String status) {
@@ -33,12 +31,10 @@ class _PaymentDetailPageState extends State<PaymentDetailPage> {
   Future<void> _revert() async {
     setState(() => _posting = true);
     try {
-      final repo = context.read<PaymentsRepository>();
-      final req = CreateVerificationRequest(action: VerificationAction.PaymentReverted, targetId: widget.item.id);
-      await repo.createPaymentVerification(req);
+      await context.read<PaymentsBloc>().revert(widget.item.id);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Revert verification submitted')));
-      context.pop();
+      setState(() => _posting = false);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to submit revert: $e')));
@@ -48,7 +44,9 @@ class _PaymentDetailPageState extends State<PaymentDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final item = widget.item;
+    final item = context.select<PaymentsBloc, PaymentResponse>(
+      (b) => b.state.items.firstWhere((e) => e.id == widget.item.id, orElse: () => widget.item),
+    );
     return Scaffold(
       body: Padding(
         padding: const EdgeInsets.all(24.0),

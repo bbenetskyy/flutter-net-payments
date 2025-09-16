@@ -1,12 +1,13 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import '../../data/models/requests/update_user_request.dart';
 import '../../data/models/responses/role_response.dart';
 import '../../data/models/responses/user_response.dart';
 import '../../data/models/user_permissions.dart';
-import '../../data/repositories/users_repository.dart';
+import '../../logic/users/users_bloc.dart';
+import '../../logic/users/users_event.dart';
 
 class UserDetailPage extends StatefulWidget {
   const UserDetailPage({super.key, required this.user, required this.roles});
@@ -19,6 +20,7 @@ class UserDetailPage extends StatefulWidget {
 
 class _UserDetailPageState extends State<UserDetailPage> {
   late UserResponse _user;
+  bool _changed = false;
 
   @override
   void initState() {
@@ -29,35 +31,42 @@ class _UserDetailPageState extends State<UserDetailPage> {
   @override
   Widget build(BuildContext context) {
     final title = (_user.displayName ?? _user.email ?? 'NAME MISSING');
-    return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                IconButton(onPressed: () => context.pop(), icon: const Icon(Icons.arrow_back)),
-                const SizedBox(width: 8),
-                const Icon(Icons.person, size: 28),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                ),
-                const SizedBox(width: 8),
-                FilledButton.icon(
-                  onPressed: () => _showEditDialog(context),
-                  icon: const Icon(Icons.edit),
-                  label: const Text('Edit'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if ((_user.email ?? '').isNotEmpty) Text(_user.email!, style: const TextStyle(color: Colors.grey)),
-            const SizedBox(height: 12),
-            if ((_user.role ?? '').isNotEmpty) Text('Role: ${_user.role}'),
-            if ((_user.createdAt ?? '').isNotEmpty) Text('Created: ${_user.createdAt}'),
-          ],
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        context.pop(_changed);
+      },
+      child: Scaffold(
+        body: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  IconButton(onPressed: () => context.pop(_changed), icon: const Icon(Icons.arrow_back)),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.person, size: 28),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.icon(
+                    onPressed: () => _showEditDialog(context),
+                    icon: const Icon(Icons.edit),
+                    label: const Text('Edit'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              if ((_user.email ?? '').isNotEmpty) Text(_user.email!, style: const TextStyle(color: Colors.grey)),
+              const SizedBox(height: 12),
+              if ((_user.roleName ?? '').isNotEmpty) Text('Role: ${_user.roleName}'),
+              if ((_user.createdAt ?? '').isNotEmpty) Text('Created: ${_user.createdAt}'),
+            ],
+          ),
         ),
       ),
     );
@@ -67,28 +76,26 @@ class _UserDetailPageState extends State<UserDetailPage> {
     final nameController = TextEditingController(text: _user.displayName ?? '');
     final emailController = TextEditingController(text: _user.email ?? '');
     DateTime? selectedDob; // We only have dobHash in response; allow setting a new DOB
-    RoleResponse? selectedRole;
     final formKey = GlobalKey<FormState>();
     bool saving = false;
+    RoleResponse? selectedRole = widget.roles.firstWhere(
+      (r) => r.name.toLowerCase() == (_user.roleName ?? '').toLowerCase(),
+      orElse: () => widget.roles.isNotEmpty
+          ? widget.roles.first
+          : RoleResponse(
+              id: '',
+              name: '',
+              permissions: const <UserPermissions>{},
+              createdAt: DateTime.now(),
+              usersCount: 0,
+            ),
+    );
 
     await showDialog(
       context: context,
       builder: (ctx) {
         return StatefulBuilder(
-          builder: (ctx, setState) {
-            selectedRole = widget.roles.firstWhere(
-              (r) => r.name.toLowerCase() == (_user.role ?? '').toLowerCase(),
-              orElse: () => widget.roles.isNotEmpty
-                  ? widget.roles.first
-                  : RoleResponse(
-                      id: '',
-                      name: '',
-                      permissions: const <UserPermissions>{},
-                      createdAt: DateTime.now(),
-                      usersCount: 0,
-                    ),
-            );
-
+          builder: (ctx, modalSetState) {
             return AlertDialog(
               title: const Text('Edit user'),
               content: SizedBox(
@@ -125,7 +132,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                                     firstDate: first,
                                     lastDate: last,
                                   );
-                                  if (picked != null) setState(() => selectedDob = picked);
+                                  if (picked != null) modalSetState(() => selectedDob = picked);
                                 },
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(vertical: 12.0),
@@ -143,12 +150,12 @@ class _UserDetailPageState extends State<UserDetailPage> {
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<RoleResponse>(
-                        value: selectedRole,
+                        initialValue: selectedRole,
                         decoration: const InputDecoration(labelText: 'Role'),
                         items: widget.roles
                             .map((r) => DropdownMenuItem<RoleResponse>(value: r, child: Text(r.name)))
                             .toList(),
-                        onChanged: (v) => setState(() => selectedRole = v),
+                        onChanged: (v) => modalSetState(() => selectedRole = v),
                       ),
                     ],
                   ),
@@ -160,37 +167,35 @@ class _UserDetailPageState extends State<UserDetailPage> {
                   onPressed: saving
                       ? null
                       : () async {
-                          setState(() => saving = true);
+                          modalSetState(() => saving = true);
                           try {
-                            final req = UpdateUserRequest(
-                              displayName: nameController.text.trim().isEmpty ? null : nameController.text.trim(),
-                              roleId: selectedRole?.id,
-                              dateOfBirth: selectedDob,
-                            );
+                            UserResponse? updatedUser;
+                            final completer = Completer<UserResponse?>();
                             if (_user.id != null) {
-                              //todo await usersRepo.adminUpdateUser(_user.id!, req);
+                              context.read<UsersBloc>().add(
+                                UsersUpdateRequested(
+                                  userId: _user.id!,
+                                  displayName: nameController.text,
+                                  roleId: selectedRole?.id,
+                                  dateOfBirth: selectedDob,
+                                  completer: completer,
+                                ),
+                              );
+                              updatedUser = await completer.future;
                             }
-                            setState(() => saving = false);
+                            modalSetState(() => saving = false);
                             if (mounted) {
-                              setState(() {
-                                _user = UserResponse(
-                                  id: _user.id,
-                                  email: _user.email,
-                                  displayName: nameController.text.trim().isEmpty
-                                      ? _user.displayName
-                                      : nameController.text.trim(),
-                                  role: selectedRole?.name ?? _user.role,
-                                  effectivePermissions: _user.effectivePermissions,
-                                  dobHash: _user.dobHash, // cannot recalc without backend feedback
-                                  verificationStatus: _user.verificationStatus,
-                                  createdAt: _user.createdAt,
-                                );
-                              });
                               Navigator.of(ctx).pop();
                               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User updated')));
+                              if (updatedUser != null) {
+                                setState(() {
+                                  _user = updatedUser!;
+                                  _changed = true;
+                                });
+                              }
                             }
                           } catch (e) {
-                            setState(() => saving = false);
+                            modalSetState(() => saving = false);
                             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
                           }
                         },

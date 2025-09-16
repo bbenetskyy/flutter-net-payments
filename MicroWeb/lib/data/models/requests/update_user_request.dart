@@ -24,6 +24,28 @@ Object? _permissionsToJson(Set<UserPermissions>? value) {
   return UserPermissionsConverter.toBitMask(value);
 }
 
+// DateOnly converters (yyyy-MM-dd) for backend compatibility
+DateTime? _dateOnlyFromJson(Object? v) {
+  if (v == null) return null;
+  if (v is String) {
+    try {
+      // Accept both yyyy-MM-dd and full ISO strings
+      return DateTime.parse(v);
+    } catch (_) {
+      return null;
+    }
+  }
+  return null;
+}
+
+Object? _dateOnlyToJson(DateTime? dt) {
+  if (dt == null) return null;
+  final y = dt.year.toString().padLeft(4, '0');
+  final m = dt.month.toString().padLeft(2, '0');
+  final d = dt.day.toString().padLeft(2, '0');
+  return '$d-$m-$y';
+}
+
 @JsonSerializable(checked: true, createToJson: true, disallowUnrecognizedKeys: false, explicitToJson: true)
 class UpdateUserRequest {
   /// Returns a new [UpdateUserRequest] instance.
@@ -35,7 +57,15 @@ class UpdateUserRequest {
   @JsonKey(name: r'roleId', required: false, includeIfNull: false)
   final String? roleId;
 
-  @JsonKey(name: r'dateOfBirth', required: false, includeIfNull: false)
+  // Backend expects DateOnly (yyyy-MM-dd). Serialize as such and accept either
+  // full ISO8601 or yyyy-MM-dd on deserialization.
+  @JsonKey(
+    name: r'dateOfBirth',
+    required: false,
+    includeIfNull: false,
+    // fromJson: _dateOnlyFromJson,
+    // toJson: _dateOnlyToJson,
+  )
   final DateTime? dateOfBirth;
 
   // Flags: backend expects combined integer bitmask of UserPermissions

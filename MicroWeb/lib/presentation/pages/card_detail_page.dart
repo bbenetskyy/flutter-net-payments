@@ -57,6 +57,7 @@ class CardDetailPage extends StatefulWidget {
 class _CardDetailPageState extends State<CardDetailPage> {
   bool _posting = false;
   bool _saving = false;
+  bool _changed = false;
   late int _singleLimit;
   late int _monthlyLimit;
   late Set<CardOptions> _selectedOptions;
@@ -97,7 +98,10 @@ class _CardDetailPageState extends State<CardDetailPage> {
       ),
     );
     if (confirm != true) return;
-    setState(() => _posting = true);
+    setState(() {
+      _changed = true;
+      _posting = true;
+    });
     try {
       await context.read<CardsBloc>().printCard(widget.card.id);
       if (!mounted) return;
@@ -127,7 +131,10 @@ class _CardDetailPageState extends State<CardDetailPage> {
       ),
     );
     if (confirm != true) return;
-    setState(() => _posting = true);
+    setState(() {
+      _changed = true;
+      _posting = true;
+    });
     try {
       await context.read<CardsBloc>().terminate(widget.card.id);
       if (!mounted) return;
@@ -151,7 +158,10 @@ class _CardDetailPageState extends State<CardDetailPage> {
           child: _AssignCardDialog(cardId: widget.card.id),
         ),
       );
-      setState(() => _posting = false);
+      setState(() {
+        _changed = true;
+        _posting = false;
+      });
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to assign user: $e')));
@@ -181,6 +191,9 @@ class _CardDetailPageState extends State<CardDetailPage> {
         options: card.printed ? null : _selectedOptions,
       );
       final updated = await context.read<CardsBloc>().update(card.id, req);
+      setState(() {
+        _changed = true;
+      });
       if (!mounted) return;
       if (updated != null) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Card updated')));
@@ -201,154 +214,161 @@ class _CardDetailPageState extends State<CardDetailPage> {
       (b) => b.state.items.firstWhere((e) => e.id == widget.card.id, orElse: () => widget.card),
     );
     final isUnassigned = (card.assignedUserId?.isEmpty ?? true);
-    return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                IconButton(onPressed: () => context.pop(), icon: const Icon(Icons.arrow_back)),
-                const SizedBox(width: 8),
-                const Icon(Icons.credit_card, size: 28),
-                const SizedBox(width: 8),
-                Chip(
-                  label: Text(
-                    isUnassigned ? 'Unassigned' : widget.card.name,
-                    style: TextStyle(color: isUnassigned ? Colors.red[800] : Colors.green[800]),
-                  ),
-                  backgroundColor: isUnassigned ? Colors.red[100] : Colors.green[100],
-                ),
-                const Spacer(),
-                if (isUnassigned) ...[
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        context.pop(_changed);
+      },
+      child: Scaffold(
+        body: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  IconButton(onPressed: () => context.pop(_changed), icon: const Icon(Icons.arrow_back)),
                   const SizedBox(width: 8),
-                  FilledButton.icon(
-                    onPressed: _posting ? null : _assign,
-                    icon: _posting
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Icon(Icons.undo),
-                    label: const Text('Assign User'),
-                  ),
-                ],
-                if (!card.terminated) ...[
+                  const Icon(Icons.credit_card, size: 28),
                   const SizedBox(width: 8),
-                  FilledButton.icon(
-                    onPressed: _posting ? null : _terminate,
-                    icon: _posting
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Icon(Icons.block),
-                    label: const Text('Terminate Card'),
-                    style: FilledButton.styleFrom(backgroundColor: Colors.red[700]),
-                  ),
-                ],
-                if (!card.printed && !card.terminated) ...[
-                  const SizedBox(width: 8),
-                  FilledButton.icon(
-                    onPressed: _posting ? null : _print,
-                    icon: _posting
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Icon(Icons.print),
-                    label: const Text('Print Card'),
-                  ),
-                ],
-                const SizedBox(width: 8),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text('Type: ${card.type.name}'),
-            Text('Printed: ${card.printed ? 'Yes' : 'No'}'),
-            Text('Terminated: ${card.terminated ? 'Yes' : 'No'}'),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    readOnly: card.terminated,
-                    controller: _singleCtrl,
-                    decoration: const InputDecoration(labelText: 'Single transaction limit'),
-                    keyboardType: TextInputType.number,
-                    onChanged: (v) {
-                      final val = int.tryParse(v);
-                      if (val != null) setState(() => _singleLimit = val);
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    readOnly: card.terminated,
-                    controller: _monthlyCtrl,
-                    decoration: const InputDecoration(labelText: 'Monthly limit'),
-                    keyboardType: TextInputType.number,
-                    onChanged: (v) {
-                      final val = int.tryParse(v);
-                      if (val != null) setState(() => _monthlyLimit = val);
-                    },
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const Text('Options'),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: CardOptions.values
-                  .where((o) => o != CardOptions.None)
-                  .map(
-                    (o) => FilterChip(
-                      label: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [Icon(_optionIcon(o), size: 16), const SizedBox(width: 4), Text(o.name)],
-                      ),
-                      selected: _selectedOptions.contains(o),
-                      onSelected: card.printed || card.terminated
-                          ? null
-                          : (sel) {
-                              setState(() {
-                                if (sel) {
-                                  _selectedOptions.add(o);
-                                } else {
-                                  _selectedOptions.remove(o);
-                                }
-                              });
-                            },
+                  Chip(
+                    label: Text(
+                      isUnassigned ? 'Unassigned' : widget.card.name,
+                      style: TextStyle(color: isUnassigned ? Colors.red[800] : Colors.green[800]),
                     ),
-                  )
-                  .toList(),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: _saving
-                      ? null
-                      : () {
-                          _resetFromCard(card);
-                        },
-                  child: const Text('Discard'),
-                ),
-                const SizedBox(width: 8),
-                FilledButton.icon(
-                  onPressed: _saving
-                      ? null
-                      : () async {
-                          await _update(card);
-                        },
-                  icon: _saving
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.save),
-                  label: const Text('Update card'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if ((card.assignedUserId ?? '').isNotEmpty) Text('Assigned User: ${card.assignedUserId}'),
-            Text('Created: ${card.createdAt}'),
-          ],
+                    backgroundColor: isUnassigned ? Colors.red[100] : Colors.green[100],
+                  ),
+                  const Spacer(),
+                  if (isUnassigned) ...[
+                    const SizedBox(width: 8),
+                    FilledButton.icon(
+                      onPressed: _posting ? null : _assign,
+                      icon: _posting
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.undo),
+                      label: const Text('Assign User'),
+                    ),
+                  ],
+                  if (!card.terminated) ...[
+                    const SizedBox(width: 8),
+                    FilledButton.icon(
+                      onPressed: _posting ? null : _terminate,
+                      icon: _posting
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.block),
+                      label: const Text('Terminate Card'),
+                      style: FilledButton.styleFrom(backgroundColor: Colors.red[700]),
+                    ),
+                  ],
+                  if (!card.printed && !card.terminated) ...[
+                    const SizedBox(width: 8),
+                    FilledButton.icon(
+                      onPressed: _posting ? null : _print,
+                      icon: _posting
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.print),
+                      label: const Text('Print Card'),
+                    ),
+                  ],
+                  const SizedBox(width: 8),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text('Type: ${card.type.name}'),
+              Text('Printed: ${card.printed ? 'Yes' : 'No'}'),
+              Text('Terminated: ${card.terminated ? 'Yes' : 'No'}'),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      readOnly: card.terminated,
+                      controller: _singleCtrl,
+                      decoration: const InputDecoration(labelText: 'Single transaction limit'),
+                      keyboardType: TextInputType.number,
+                      onChanged: (v) {
+                        final val = int.tryParse(v);
+                        if (val != null) setState(() => _singleLimit = val);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      readOnly: card.terminated,
+                      controller: _monthlyCtrl,
+                      decoration: const InputDecoration(labelText: 'Monthly limit'),
+                      keyboardType: TextInputType.number,
+                      onChanged: (v) {
+                        final val = int.tryParse(v);
+                        if (val != null) setState(() => _monthlyLimit = val);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const Text('Options'),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: CardOptions.values
+                    .where((o) => o != CardOptions.None)
+                    .map(
+                      (o) => FilterChip(
+                        label: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [Icon(_optionIcon(o), size: 16), const SizedBox(width: 4), Text(o.name)],
+                        ),
+                        selected: _selectedOptions.contains(o),
+                        onSelected: card.printed || card.terminated
+                            ? null
+                            : (sel) {
+                                setState(() {
+                                  if (sel) {
+                                    _selectedOptions.add(o);
+                                  } else {
+                                    _selectedOptions.remove(o);
+                                  }
+                                });
+                              },
+                      ),
+                    )
+                    .toList(),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: _saving
+                        ? null
+                        : () {
+                            _resetFromCard(card);
+                          },
+                    child: const Text('Discard'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.icon(
+                    onPressed: _saving
+                        ? null
+                        : () async {
+                            await _update(card);
+                          },
+                    icon: _saving
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.save),
+                    label: const Text('Update card'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              if ((card.assignedUserId ?? '').isNotEmpty) Text('Assigned User: ${card.assignedUserId}'),
+              Text('Created: ${card.createdAt}'),
+            ],
+          ),
         ),
       ),
     );

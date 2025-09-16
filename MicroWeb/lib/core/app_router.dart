@@ -94,7 +94,14 @@ class AppRouter {
                   if (item == null) {
                     return const NotFoundPage();
                   }
-                  return PaymentDetailPage(item: item);
+                  return BlocProvider<PaymentsBloc>(
+                    create: (c) => PaymentsBloc(
+                      c.read<PaymentsRepository>(),
+                      c.read<UsersRepository>(),
+                      c.read<AccountsRepository>(),
+                    )..load(),
+                    child: PaymentDetailPage(item: item),
+                  );
                 },
               ),
               GoRoute(
@@ -122,7 +129,10 @@ class AppRouter {
                   final user = extras.first as UserResponse?;
                   final roles = extras.last as List<RoleResponse>?;
                   if (user == null || roles == null) return const NotFoundPage();
-                  return UserDetailPage(user: user, roles: roles);
+                  return BlocProvider<UsersBloc>(
+                    create: (c) => UsersBloc(c.read<UsersRepository>()),
+                    child: UserDetailPage(user: user, roles: roles),
+                  );
                 },
               ),
               GoRoute(path: '/settings', builder: (_, __) => const SettingsPage()),

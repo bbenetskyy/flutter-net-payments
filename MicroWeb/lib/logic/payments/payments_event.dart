@@ -30,3 +30,9 @@ class PaymentCreateRequested extends PaymentsEvent {
   final CreatePaymentRequest request;
   final Completer<PaymentResponse?> completer;
 }
+
+class PaymentRevertRequested extends PaymentsEvent {
+  const PaymentRevertRequested(this.paymentId, this.completer);
+  final String paymentId;
+  final Completer<void> completer;
+}

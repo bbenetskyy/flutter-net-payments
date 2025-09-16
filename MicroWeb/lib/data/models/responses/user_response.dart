@@ -18,7 +18,8 @@ class UserResponse {
     this.id,
     this.email,
     this.displayName,
-    this.role,
+    this.roleId,
+    this.roleName,
     this.effectivePermissions,
     this.dobHash,
     this.verificationStatus,
@@ -34,8 +35,11 @@ class UserResponse {
   @JsonKey(name: r'displayName', required: false, includeIfNull: false)
   final String? displayName;
 
-  @JsonKey(name: r'role', required: false, includeIfNull: false)
-  final String? role;
+  @JsonKey(name: r'roleId', required: false, includeIfNull: false)
+  final String? roleId;
+
+  @JsonKey(name: r'roleName', required: false, includeIfNull: false)
+  final String? roleName;
 
   @JsonKey(name: r'effectivePermissions', required: false, includeIfNull: false)
   final int? effectivePermissions;
@@ -56,7 +60,8 @@ class UserResponse {
           other.id == id &&
           other.email == email &&
           other.displayName == displayName &&
-          other.role == role &&
+          other.roleId == roleId &&
+          other.roleName == roleName &&
           other.effectivePermissions == effectivePermissions &&
           other.dobHash == dobHash &&
           other.verificationStatus == verificationStatus &&
@@ -67,28 +72,45 @@ class UserResponse {
       (id == null ? 0 : id.hashCode) +
       (email == null ? 0 : email.hashCode) +
       (displayName == null ? 0 : displayName.hashCode) +
-      (role == null ? 0 : role.hashCode) +
+      (roleId == null ? 0 : roleId.hashCode) +
       (effectivePermissions == null ? 0 : effectivePermissions.hashCode) +
       (dobHash == null ? 0 : dobHash.hashCode) +
       (verificationStatus == null ? 0 : verificationStatus.hashCode) +
       (createdAt == null ? 0 : createdAt.hashCode);
 
   factory UserResponse.fromJson(Map<String, dynamic> json) {
-    // Normalize role value: backend may return a nested object for role, while
-    // this model expects a String (e.g., role name). We extract a reasonable
-    // string (name/title/id) if a map is provided.
+    // Normalize role value: backend may return either:
+    //  - roleName/roleId as flat properties (ideal)
+    //  - a nested `role` object { id, name, ... }
+    //  - a plain `role` string
+    // Make sure roleName and roleId are populated accordingly before delegating
+    // to the generated constructor.
     final data = Map<String, dynamic>.from(json);
+
     final roleValue = data['role'];
+    // If backend returned a nested role map, extract both name and id.
     if (roleValue is Map) {
-      // Try common keys in order of preference
-      final dynamic name = roleValue['name'] ?? roleValue['title'] ?? roleValue['code'] ?? roleValue['id'];
-      if (name != null) {
-        data['role'] = name.toString();
-      } else {
-        // Fallback to a simple string representation
-        data['role'] = roleValue.toString();
+      final dynamic name = roleValue['name'] ?? roleValue['title'] ?? roleValue['code'];
+      final dynamic id = roleValue['id'] ?? roleValue['roleId'];
+      if (data['roleName'] == null && name != null) {
+        data['roleName'] = name.toString();
       }
+      if (data['roleId'] == null && id != null) {
+        data['roleId'] = id.toString();
+      }
+    } else if (roleValue is String) {
+      // If a plain string was provided for role, map it to roleName if missing.
+      data['roleName'] ??= roleValue;
     }
+
+    // Some backends may use different casing/keys. Map common alternates.
+    if (data['role_name'] != null && data['roleName'] == null) {
+      data['roleName'] = data['role_name'];
+    }
+    if (data['role_id'] != null && data['roleId'] == null) {
+      data['roleId'] = data['role_id'];
+    }
+
     return _$UserResponseFromJson(data);
   }
   Map<String, dynamic> toJson() => _$UserResponseToJson(this);
