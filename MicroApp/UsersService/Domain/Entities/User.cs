@@ -21,7 +21,7 @@ public sealed class User
 
     // Ролі/права
     public Guid RoleId { get; set; }
-    public Role Role { get; set; } = default!;
+    public Role? Role { get; set; }
     public UserPermissions? OverridePermissions { get; set; } // опціонально: явне перекриття
 
     public VerificationStatus VerificationStatus { get; set; } = VerificationStatus.Pending;

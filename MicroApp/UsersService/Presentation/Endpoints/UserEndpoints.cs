@@ -303,10 +303,14 @@ public static class UserEndpoints
             {
                 user.DisplayName = req.DisplayName.Trim();
             }
-            if (req.RoleId is Guid)
+            if (req.RoleId != null)
             {
-                return Results.BadRequest(
-                    "Changing role via this endpoint is not allowed. Role must be set during registration verification.");
+                var role = await db.Roles.FindAsync(req.RoleId.Value);
+                if (role is null) return Results.BadRequest("Role not found");
+                user.RoleId = req.RoleId.Value;
+                user.Role = role;
+                // return Results.BadRequest(
+                //     "Changing role via this endpoint is not allowed. Role must be set during registration verification.");
             }
             if (req.OverridePermissions is not null) user.OverridePermissions = req.OverridePermissions;
 
@@ -361,17 +365,18 @@ public static class UserEndpoints
             Results.Ok(await db.Users
                 .Include(u => u.Role)
                 .OrderBy(x => x.DisplayName)
-                .Select(u => new
-                {
+                .Select(u => new UserResponse(
+                
                     u.Id,
                     u.Email,
                     u.DisplayName,
-                    Role = u.Role.Name,
-                    EffectivePermissions = (long)(u.OverridePermissions ?? u.Role.Permissions),
-                    DobHash = u.DobHash,
+                    u.Role.Id,
+                    u.Role.Name,
+                    u.OverridePermissions ?? u.Role.Permissions,
                     u.VerificationStatus,
+                    u.DobHash,
                     u.CreatedAt
-                }).ToListAsync())
+                )).ToListAsync())
         ).RequirePermission(UserPermissions.ViewUsers);
 
 
@@ -398,7 +403,7 @@ public static class UserEndpoints
 
     private static async Task<UserResponse> ToResponse(User u, UsersDb db)
     {
-        var role = await db.Roles.FindAsync(u.RoleId) ?? throw new InvalidOperationException();
+        var role = u.Role ?? await db.Roles.FindAsync(u.RoleId) ?? throw new InvalidOperationException();
         var eff = u.OverridePermissions ?? role.Permissions;
         return new UserResponse(
             u.Id, u.Email, u.DisplayName,

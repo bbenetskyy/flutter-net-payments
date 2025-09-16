@@ -4,12 +4,14 @@ using Common.Validation;
 using MicroApp.UsersService.Application;
 using MicroApp.UsersService.Application.DTOs;
 using MicroApp.UsersService.Application.Validation;
+using MicroApp.UsersService.Application.Serialization;
 using MicroApp.UsersService.Domain.Entities;
 using MicroApp.UsersService.Infrastructure.Email;
 using MicroApp.UsersService.Infrastructure.Persistence;
 using MicroApp.UsersService.Presentation.Endpoints;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,6 +24,13 @@ builder.Services.AddDbContext<VerificationsDb>(o =>
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// JSON options: add lenient DateOnly converter to accept ISO date or ISO datetime
+builder.Services.ConfigureHttpJsonOptions(o =>
+{
+    // Keep any existing converters; add only our DateOnly one
+    o.SerializerOptions.Converters.Add(new DateOnlyLenientJsonConverter());
+});
 
 // Validators
 builder.Services.AddSingleton<IValidator<CreateUserRequest>, CreateUserRequestValidator>();

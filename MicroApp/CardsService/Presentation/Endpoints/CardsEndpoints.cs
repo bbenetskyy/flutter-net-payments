@@ -87,17 +87,19 @@ public static class CardsEndpoints
             if (req.SingleTransactionLimit is decimal stl) card.SingleTransactionLimit = stl;
             
             if (req.MonthlyLimit is decimal ml) card.MonthlyLimit = ml;
-            if (req.Printed is bool printed) card.Printed = printed;
+            //will be updated via verification
+            // if (req.Printed is bool printed) card.Printed = printed;
             if (req.Options is CardOptions opts) card.Options = opts;
 
             card.UpdatedAt = DateTime.UtcNow;
             await db.SaveChangesAsync();
             VerificationResponse? verification = null;
 
-            
             // 🔔 Example trigger: when someone requests printing (false -> true)
             if (req.Printed is true && wasPrinted == false)
             {
+                if(card.AssignedUserId is null)
+                    return Results.BadRequest("Cannot request printing for unassigned card");
                 verification = await verSvc.CreateForPrintingAsync(card.Id, http.User);
             }
 
@@ -199,6 +201,9 @@ public static class CardsEndpoints
         {
             var card = await db.Cards.AsNoTracking().FirstOrDefaultAsync(c => c.Id == id);
             if (card is null) return Results.NotFound();
+            
+            if(card.AssignedUserId is null)
+                return Results.BadRequest("Cannot request termination for unassigned card");
 
             // 🔔 Create “termination” verification
             var v = await verSvc.CreateForTerminationAsync(id, http.User);
