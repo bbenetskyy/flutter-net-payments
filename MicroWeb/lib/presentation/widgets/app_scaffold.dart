@@ -67,6 +67,11 @@ class _AppScaffoldState extends State<AppScaffold> {
               onTap: () => context.go('/payments'),
             ),
             ListTile(
+              leading: const Icon(Icons.account_balance_wallet),
+              title: const Text('Wallet'),
+              onTap: () => context.go('/wallet'),
+            ),
+            ListTile(
               leading: const Icon(Icons.account_balance_outlined),
               title: const Text('Accounts'),
               onTap: () => context.go('/accounts'),
@@ -100,15 +105,18 @@ class _AppScaffoldState extends State<AppScaffold> {
                     context.go('/payments');
                     break;
                   case 1:
-                    context.go('/accounts');
+                    context.go('/wallet');
                     break;
                   case 2:
-                    context.go('/cards');
+                    context.go('/accounts');
                     break;
                   case 3:
-                    context.go('/users');
+                    context.go('/cards');
                     break;
                   case 4:
+                    context.go('/users');
+                    break;
+                  case 5:
                     context.go('/settings');
                     break;
                 }
@@ -118,6 +126,7 @@ class _AppScaffoldState extends State<AppScaffold> {
               },
               destinations: const [
                 NavigationRailDestination(icon: Icon(Icons.account_balance_wallet_outlined), label: Text('Payments')),
+                NavigationRailDestination(icon: Icon(Icons.account_balance_wallet), label: Text('Wallet')),
                 NavigationRailDestination(icon: Icon(Icons.account_balance_outlined), label: Text('Accounts')),
                 NavigationRailDestination(icon: Icon(Icons.credit_card), label: Text('Cards')),
                 NavigationRailDestination(icon: Icon(Icons.people_alt_outlined), label: Text('Users')),

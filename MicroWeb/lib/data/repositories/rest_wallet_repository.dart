@@ -1,4 +1,9 @@
 import '../models/requests/create_account_request.dart';
+import '../models/responses/wallet_response.dart';
+import '../models/responses/ledger_response.dart';
+import '../models/top_up_request.dart';
+import '../models/responses/top_up_applied_response.dart';
+import '../models/responses/top_up_idempotent_response.dart';
 import '../services/api_client.dart';
 import 'wallet_repository.dart';
 
@@ -47,5 +52,35 @@ class RestWalletRepository implements WalletRepository {
   @override
   Future<dynamic> listTransactions(String id, {Map<String, dynamic>? query}) async {
     return await _api.get('/accounts/$id/transactions', query: query);
+  }
+
+  // Wallets
+  @override
+  Future<WalletResponse> getWalletByUserId(String userId) async {
+    final data = await _api.get('/wallets/$userId');
+    return WalletResponse.fromJson(Map<String, dynamic>.from(data as Map));
+  }
+
+  @override
+  Future<List<LedgerResponse>> getLedgerByUserId(String userId) async {
+    final data = await _api.get('/wallets/$userId/ledger');
+    final list = List<Map<String, dynamic>>.from(data as List);
+    return list.map(LedgerResponse.fromJson).toList();
+  }
+
+  @override
+  Future<dynamic> topUp(String userId, TopUpRequest request) async {
+    final data = await _api.post('/wallets/$userId/topup', body: request.toJson());
+    // Try to parse into known response models, otherwise return raw
+    if (data is Map<String, dynamic>) {
+      final map = Map<String, dynamic>.from(data);
+      if (map.containsKey('balanceMinor')) {
+        return TopUpAppliedResponse.fromJson(map);
+      }
+      if (map.containsKey('correlationId')) {
+        return TopUpIdempotentResponse.fromJson(map);
+      }
+    }
+    return data;
   }
 }

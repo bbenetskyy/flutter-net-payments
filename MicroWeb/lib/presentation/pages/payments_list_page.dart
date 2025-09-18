@@ -163,6 +163,7 @@ class _NewPaymentDialogState extends State<_NewPaymentDialog> {
 
   String? _fromIban; // selected from accounts/my
   String? _selectedUserId; // selected from /users
+  bool _beneficiaryAccountsRequested = false; // flag to validate when user selected but no accounts loaded
 
   double? _toMinorUnits(String text) {
     final normalized = text.trim().replaceAll(' ', '').replaceAll(',', '.');
@@ -237,6 +238,7 @@ class _NewPaymentDialogState extends State<_NewPaymentDialog> {
                           : (userId) async {
                               setState(() {
                                 _selectedUserId = userId;
+                                _beneficiaryAccountsRequested = true;
                                 final selected = state.users.firstWhere(
                                   (u) => u.id == userId,
                                   orElse: () => UserResponse(id: userId, displayName: null, email: null),
@@ -247,7 +249,15 @@ class _NewPaymentDialogState extends State<_NewPaymentDialog> {
                               });
                               await context.read<PaymentsBloc>().loadBeneficiaryAccounts(userId);
                             },
-                      decoration: const InputDecoration(labelText: 'Beneficiary (from users)'),
+                      decoration: InputDecoration(
+                        labelText: 'Beneficiary (from users)',
+                        errorText:
+                            (_beneficiaryAccountsRequested &&
+                                (_selectedUserId ?? '').isNotEmpty &&
+                                state.beneficiaryAccounts.isEmpty)
+                            ? 'No beneficiary accounts found for selected user'
+                            : null,
+                      ),
                     ),
                     if (state.beneficiaryAccounts.isNotEmpty)
                       DropdownButtonFormField<String>(
@@ -261,12 +271,6 @@ class _NewPaymentDialogState extends State<_NewPaymentDialog> {
                             : (v) => setState(() {
                                 _beneficiaryAccount.text = v ?? '';
                               }),
-                        decoration: const InputDecoration(labelText: 'Beneficiary Account (IBAN)'),
-                        validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
-                      )
-                    else
-                      TextFormField(
-                        controller: _beneficiaryAccount,
                         decoration: const InputDecoration(labelText: 'Beneficiary Account (IBAN)'),
                         validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
                       ),

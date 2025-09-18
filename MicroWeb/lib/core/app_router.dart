@@ -28,11 +28,14 @@ import '../logic/payments/payments_bloc.dart';
 import '../data/repositories/payments_repository.dart';
 import '../data/repositories/users_repository.dart';
 import '../data/repositories/accounts_repository.dart';
+import '../data/repositories/wallet_repository.dart';
 import '../logic/users/users_bloc.dart';
 import '../data/models/responses/user_response.dart';
 import '../logic/accounts/accounts_bloc.dart';
+import '../logic/wallets/wallets_cubit.dart';
 import '../presentation/pages/accounts_list_page.dart';
 import '../presentation/pages/account_detail_page.dart';
+import '../presentation/pages/wallet_page.dart';
 import '../data/models/responses/account_response.dart';
 
 class AppRouter {
@@ -74,6 +77,14 @@ class AppRouter {
                     ctx.read<AccountsRepository>(),
                   )..load(),
                   child: const PaymentsListPage(),
+                ),
+              ),
+              GoRoute(
+                path: '/wallet',
+                builder: (context, __) => BlocProvider<WalletCubit>(
+                  create: (ctx) =>
+                      WalletCubit(ctx.read<WalletRepository>(), ctx.read<UsersRepository>())..loadForCurrentUser(),
+                  child: const WalletPage(),
                 ),
               ),
               GoRoute(
