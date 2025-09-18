@@ -62,6 +62,22 @@ public static class InternalEndpoints
 
             var hasCounterparty = payeeId != Guid.Empty && payerId != Guid.Empty && payerId != payeeId;
 
+            // Derive a deterministic correlation id per intent + event type so that
+            // capture and reversal events don't collide on idempotency checks but
+            // retries of the same event remain idempotent.
+            static Guid DeriveCorrelationId(Guid intentId, Common.Domain.Enums.PaymentEventType eventType)
+            {
+                // Simple deterministic mix: XOR the first 4 bytes with the event type value
+                var bytes = intentId.ToByteArray();
+                var typeBytes = BitConverter.GetBytes((int)eventType);
+                for (int i = 0; i < 4 && i < bytes.Length && i < typeBytes.Length; i++)
+                {
+                    bytes[i] ^= typeBytes[i];
+                }
+                return new Guid(bytes);
+            }
+            var correlationId = captured ? evt.IntentId : DeriveCorrelationId(evt.IntentId, evt.EventType);
+
             // Load/create wallets
             Wallet? payerWallet = null;
             if (payerId != Guid.Empty)
@@ -87,8 +103,8 @@ public static class InternalEndpoints
                 }
             }
 
-            // Idempotency across both wallets
-            var anyExists = await db.Ledger.AnyAsync(x => x.CorrelationId == evt.IntentId);
+            // Idempotency across both wallets per intent + event type
+            var anyExists = await db.Ledger.AnyAsync(x => x.CorrelationId == correlationId);
             if (anyExists) return Results.Ok(new { status = "idempotent" });
 
             // For cross-wallet transfer ensure payer has enough cash
@@ -113,13 +129,13 @@ public static class InternalEndpoints
                         {
                             Id = Guid.NewGuid(), WalletId = payerWallet.Id, AmountMinor = evt.AmountMinor, Currency = evt.Currency,
                             Type = LedgerEntryType.Debit, Account = cash, CounterpartyAccount = clearing,
-                            CorrelationId = evt.IntentId, Description = evt.Description
+                            CorrelationId = correlationId, Description = evt.Description
                         });
                         db.Ledger.Add(new LedgerEntry
                         {
                             Id = Guid.NewGuid(), WalletId = payerWallet.Id, AmountMinor = evt.AmountMinor, Currency = evt.Currency,
                             Type = LedgerEntryType.Credit, Account = clearing, CounterpartyAccount = cash,
-                            CorrelationId = evt.IntentId, Description = evt.Description
+                            CorrelationId = correlationId, Description = evt.Description
                         });
 
                         // Payee: inflow (credit cash, debit clearing)
@@ -127,13 +143,13 @@ public static class InternalEndpoints
                         {
                             Id = Guid.NewGuid(), WalletId = payeeWallet.Id, AmountMinor = evt.AmountMinor, Currency = evt.Currency,
                             Type = LedgerEntryType.Credit, Account = cash, CounterpartyAccount = clearing,
-                            CorrelationId = evt.IntentId, Description = evt.Description
+                            CorrelationId = correlationId, Description = evt.Description
                         });
                         db.Ledger.Add(new LedgerEntry
                         {
                             Id = Guid.NewGuid(), WalletId = payeeWallet.Id, AmountMinor = evt.AmountMinor, Currency = evt.Currency,
                             Type = LedgerEntryType.Debit, Account = clearing, CounterpartyAccount = cash,
-                            CorrelationId = evt.IntentId, Description = evt.Description
+                            CorrelationId = correlationId, Description = evt.Description
                         });
                     }
                     else
@@ -144,13 +160,13 @@ public static class InternalEndpoints
                         {
                             Id = Guid.NewGuid(), WalletId = payerWallet.Id, AmountMinor = evt.AmountMinor, Currency = evt.Currency,
                             Type = LedgerEntryType.Debit, Account = cash, CounterpartyAccount = clearing,
-                            CorrelationId = evt.IntentId, Description = evt.Description
+                            CorrelationId = correlationId, Description = evt.Description
                         });
                         db.Ledger.Add(new LedgerEntry
                         {
                             Id = Guid.NewGuid(), WalletId = payerWallet.Id, AmountMinor = evt.AmountMinor, Currency = evt.Currency,
                             Type = LedgerEntryType.Credit, Account = clearing, CounterpartyAccount = cash,
-                            CorrelationId = evt.IntentId, Description = evt.Description
+                            CorrelationId = correlationId, Description = evt.Description
                         });
 
                         // User (original payer) inflow
@@ -158,13 +174,13 @@ public static class InternalEndpoints
                         {
                             Id = Guid.NewGuid(), WalletId = payeeWallet.Id, AmountMinor = evt.AmountMinor, Currency = evt.Currency,
                             Type = LedgerEntryType.Credit, Account = cash, CounterpartyAccount = clearing,
-                            CorrelationId = evt.IntentId, Description = evt.Description
+                            CorrelationId = correlationId, Description = evt.Description
                         });
                         db.Ledger.Add(new LedgerEntry
                         {
                             Id = Guid.NewGuid(), WalletId = payeeWallet.Id, AmountMinor = evt.AmountMinor, Currency = evt.Currency,
                             Type = LedgerEntryType.Debit, Account = clearing, CounterpartyAccount = cash,
-                            CorrelationId = evt.IntentId, Description = evt.Description
+                            CorrelationId = correlationId, Description = evt.Description
                         });
                     }
                 }
@@ -186,13 +202,13 @@ public static class InternalEndpoints
                         {
                             Id = Guid.NewGuid(), WalletId = userWallet.Id, AmountMinor = evt.AmountMinor, Currency = evt.Currency,
                             Type = LedgerEntryType.Credit, Account = cash, CounterpartyAccount = clearing,
-                            CorrelationId = evt.IntentId, Description = evt.Description
+                            CorrelationId = correlationId, Description = evt.Description
                         });
                         db.Ledger.Add(new LedgerEntry
                         {
                             Id = Guid.NewGuid(), WalletId = userWallet.Id, AmountMinor = evt.AmountMinor, Currency = evt.Currency,
                             Type = LedgerEntryType.Debit, Account = clearing, CounterpartyAccount = cash,
-                            CorrelationId = evt.IntentId, Description = evt.Description
+                            CorrelationId = correlationId, Description = evt.Description
                         });
                     }
                     else
@@ -202,13 +218,13 @@ public static class InternalEndpoints
                         {
                             Id = Guid.NewGuid(), WalletId = userWallet.Id, AmountMinor = evt.AmountMinor, Currency = evt.Currency,
                             Type = LedgerEntryType.Debit, Account = cash, CounterpartyAccount = clearing,
-                            CorrelationId = evt.IntentId, Description = evt.Description
+                            CorrelationId = correlationId, Description = evt.Description
                         });
                         db.Ledger.Add(new LedgerEntry
                         {
                             Id = Guid.NewGuid(), WalletId = userWallet.Id, AmountMinor = evt.AmountMinor, Currency = evt.Currency,
                             Type = LedgerEntryType.Credit, Account = clearing, CounterpartyAccount = cash,
-                            CorrelationId = evt.IntentId, Description = evt.Description
+                            CorrelationId = correlationId, Description = evt.Description
                         });
                     }
                 }

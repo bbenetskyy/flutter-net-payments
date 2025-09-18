@@ -167,6 +167,13 @@ public static class PaymentsEndpoints
 
             if (intendedStatus == VerificationStatus.Rejected)
             {
+                if (v.Action == VerificationAction.PaymentReverted)
+                {
+                    // revert the "awaiting reversion" status
+                    p.Status = PaymentStatus.ReversionRejected;
+                    p.UpdatedAt = DateTime.UtcNow;
+                    await db.SaveChangesAsync();
+                }
                 v = await store.Decide(id, VerificationStatus.Rejected);
                 return Results.Ok(v);
             }
