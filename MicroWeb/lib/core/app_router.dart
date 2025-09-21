@@ -61,7 +61,7 @@ class AppRouter {
           return null;
         },
         routes: [
-          GoRoute(path: '/', builder: (_, __) => const SplashPage()),
+          GoRoute(path: '/', builder: (_, __) => const SignInPage()),
           GoRoute(path: '/signin', builder: (_, __) => const SignInPage()),
           GoRoute(path: '/signup', builder: (_, __) => const SignUpPage()),
           GoRoute(path: '/registration-success', builder: (_, __) => const RegistrationSuccessPage()),
